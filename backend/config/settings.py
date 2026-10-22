@@ -40,7 +40,10 @@ if not SECRET_KEY:
     )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = bool( os.environ.get('DJANGO_DEBUG', True) )
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').strip().lower() in ('true', '1', 'yes')
+
+# Proxy inverso (Apache / Nginx): permite que Django detecte si la conexión original del cliente fue HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 ALLOWED_HOSTS = [
     'api.cincosas.com', 
@@ -72,6 +75,20 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.frontend.cincosas.com",
 ]
 
+# Permitir orígenes de túneles en modo desarrollo para pruebas externas
+if DEBUG:
+    ALLOWED_HOSTS.extend(['.devtunnels.ms', '.ngrok-free.app', '.loca.lt', '*'])
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^https://.*\.devtunnels\.ms$",
+        r"^https://.*\.ngrok-free\.app$",
+        r"^https://.*\.loca\.lt$",
+    ]
+    CSRF_TRUSTED_ORIGINS.extend([
+        "https://*.devtunnels.ms",
+        "https://*.ngrok-free.app",
+        "https://*.loca.lt",
+    ])
+
 # Configuración de cookies seguras
 SECURE_COOKIE = not DEBUG  # Solo HTTPS en producción
 SESSION_COOKIE_SECURE = not DEBUG
@@ -88,7 +105,8 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000  # 1 año
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    SECURE_SSL_REDIRECT = True
+    # Delegar la redirección HTTPS al servidor web (Apache) o habilitarlo por ENV si el proxy lo requiere
+    SECURE_SSL_REDIRECT = os.environ.get('DJANGO_SECURE_SSL_REDIRECT', 'False').strip().lower() in ('true', '1', 'yes')
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
