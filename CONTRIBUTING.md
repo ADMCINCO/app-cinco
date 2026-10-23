@@ -14,21 +14,21 @@
 ### Backend (Django)
 
 - **Python:** 3.11+ (Recomendado 3.11).
-- **Framework:** Django 5.2+ & Django REST Framework 3.16+.
-- **Autenticación:** `djangorestframework_simplejwt` (JWT).
+- **Framework:** Django 5.2.18+ & Django REST Framework 3.18.3+.
+- **Autenticación:** `djangorestframework_simplejwt` (JWT) & `PyJWT` 2.15+.
 - **Base de Datos:** MySQL / MariaDB (Driver `mysqlclient` 2.2+).
 - **Documentación API:** `drf-spectacular` (OpenAPI 3.0).
-- **Integraciones / IA:** `openai` API client, `python-dotenv`, `requests`, `reportlab`.
-- **Caché y Mensajería (Opcional):** Redis 5.3+ (`redis-py`).
+- **Integraciones / IA:** `openai` API client, `python-dotenv` 1.2.4+, `requests` 2.34+, `reportlab`.
+- **Caché y Mensajería (Opcional):** Redis 8+ (`redis-py`).
 
 ### Frontend (Next.js)
 
 - **Entorno de Ejecución:** Node.js 18+ (LTS recomendado) y **npm 9+**.
-- **Framework:** Next.js 16+ (App Router).
+- **Framework:** Next.js 16.4+ (App Router con parches de seguridad activos).
 - **Biblioteca de Interfaz:** React 19+, TailwindCSS 4+, Radix UI / Shadcn UI, Lucide React.
 - **Gestión de Estado y Formularios:** Zustand 5+, React Hook Form, Zod.
-- **Visualización y Tablas:** ApexCharts, AmCharts 5, FullCalendar, TanStack Table.
-- **Calidad de Código y Formato:** TypeScript 5.9+, ESLint 9+, Prettier, Husky & Lint-Staged.
+- **Visualización y Tablas:** ApexCharts, AmCharts 5, FullCalendar, TanStack Table, SheetJS XLSX (0.20+ CDN).
+- **Calidad de Código y Formato:** TypeScript 5.9+, ESLint 9+, PostCSS 8.5.31+, Prettier, Husky & Lint-Staged.
 
 ---
 

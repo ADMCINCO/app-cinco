@@ -1,4 +1,4 @@
-﻿# Guia de Backend (Django)
+# Guia de Backend (Django)
 
 Este backend esta pensado para operar en entornos controlados, donde la base de datos ya existe y no debe alterarse sin aprobacion.
 
@@ -10,6 +10,8 @@ Antes de trabajar con IA DEV o agentes empresariales, leer `backend/START_HERE_C
 
 - Python 3.11+
 - `pip`
+- Django 5.2.18+
+- Django REST Framework 3.18.3+
 - Acceso a la base de datos configurada en `.env`
 
 ## Configuracion rapida

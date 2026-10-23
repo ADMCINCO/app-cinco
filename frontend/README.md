@@ -1,9 +1,11 @@
-﻿# Guia de Frontend (Next.js)
+# Guia de Frontend (Next.js)
 
 ## Requisitos
 
 - Node.js 18+ (LTS recomendado)
 - npm 9+
+- Next.js 16.4+ (App Router)
+- React 19+
 
 ## Configuracion rapida
 

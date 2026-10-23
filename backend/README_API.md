@@ -10,7 +10,7 @@
 - ✅ Health checks y monitoreo
 
 **Versión:** 1.0.0  
-**Ambiente:** Django 5.2.10 | DRF 3.16.1 | Python 3.x
+**Ambiente:** Django 5.2.18 | DRF 3.18.3 | Python 3.11+
 
 ---
 
@@ -592,12 +592,19 @@ fetch("http://127.0.0.1:8000/operaciones/actividades/?estado=en_progreso", {
 
 ### Requerimientos
 ```
-Django==5.2.10
-djangorestframework==3.16.1
+Django==5.2.18
+djangorestframework==3.18.3
 djangorestframework_simplejwt==5.5.1
 drf-spectacular==0.29.0
 mysqlclient==2.2.7
-python-dotenv==1.2.1
+python-dotenv==1.2.4
+PyJWT==2.15.1
+redis==8.1.0
+requests==2.34.2
+urllib3==2.8.0
+sqlparse==0.6.0
+certifi==2026.10.23
+idna==3.20
 ```
 
 ### Instalación
