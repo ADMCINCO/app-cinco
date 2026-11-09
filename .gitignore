@@ -105,18 +105,30 @@ out/
 *.log
 *.lock
 
-# Ignore lock files from package managers
-package-lock.json
+# Ignore alternative lock files
 yarn.lock
 
 # Ignorar configuraciones de Docker (si usas)
 docker-compose.override.yml
 
+# Temporary & debug files
 tmp/
 tmp_*.json
+debug_*.json
+*_debug.json
+backend/debug_*.json
+backend/**/debug_*.json
+backend/tmp/
 backend/tmp_*.json
+backend/scratch/
+backend/scripts/tmp/
 backend/tmp_provider_serial_validation_exports/
 backend/tmp_provider_serial_validation_runtime/
+
+# Binary presentations & archives
+deliverables/*.zip
+*.pptx
+
 frontend/validation-dashboard-*.png
 frontend/validation-dashboard-panel-*.png
 frontend/validation-export.csv

@@ -89,6 +89,9 @@ def main() -> int:
     total_count = get_total_rows()
     print(f"Total de registros a procesar: {total_count}")
 
+    existing_ids = set(User.objects.values_list("id", flat=True))
+    existing_usernames = set(User.objects.values_list("username", flat=True))
+
     created_count = 0
     updated_count = 0
     skipped_count = 0
@@ -123,15 +126,15 @@ def main() -> int:
             email_value = normalize_text(email)
             is_active = is_active_from_estado(estado)
 
-            existing_by_id = User.objects.filter(pk=source_id).first()
-            existing_by_username = User.objects.filter(username=username).first()
-            already_synced = (existing_by_id is not None) or (existing_by_username is not None)
+            already_synced = (source_id in existing_ids) or (username in existing_usernames)
 
             if args.dry_run:
                 if already_synced:
                     skipped_count += 1
                 else:
                     created_count += 1
+                    existing_ids.add(source_id)
+                    existing_usernames.add(username)
                     if csv_writer:
                         csv_writer.writerow([username, "DRY_RUN", email_value])
                 continue
@@ -153,6 +156,8 @@ def main() -> int:
             temp_password = username
             user.set_password(temp_password)
             user.save(force_insert=True)
+            existing_ids.add(source_id)
+            existing_usernames.add(username)
             created_count += 1
             if csv_writer:
                 csv_writer.writerow([username, temp_password, email_value])
