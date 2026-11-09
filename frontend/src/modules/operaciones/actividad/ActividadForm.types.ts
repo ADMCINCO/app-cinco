@@ -16,4 +16,7 @@ export interface ActividadFormFieldsProps {
   mode: "create" | "edit";
   selectedEmployee: Empleado | null;
   onEmployeeChange: (empleado: Empleado | null) => void;
+  isResponsableDisabled?: boolean;
+  employeeError?: string | null;
+  onRetryLoadEmployee?: () => void;
 }

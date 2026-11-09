@@ -1,3 +1,4 @@
+from typing import Optional
 from django.db import transaction
 from django.db.models import Q, Min, Max
 from django.utils import timezone
@@ -14,6 +15,49 @@ from apps.operaciones.models import (
 
 
 class ActividadService:
+    @staticmethod
+    def resolver_empleado_id_por_usuario(user) -> Optional[int]:
+        """
+        Resuelve el ID de empleado activo asociado a un usuario de autenticación.
+
+        Prioriza la búsqueda activa por cédula (username) y utiliza el ID de usuario
+        únicamente cuando exista una asociación fiable, seleccionando exclusivamente
+        el campo `id`.
+
+        Args:
+            user: Instancia de usuario de autenticación (django.contrib.auth.models.User).
+
+        Returns:
+            Optional[int]: ID del empleado activo o None si no se encuentra relación.
+        """
+        if not user or not getattr(user, 'is_authenticated', False):
+            return None
+
+        from apps.empleados.models import Empleado
+
+        username = getattr(user, 'username', None)
+        if username and str(username).strip():
+            clean_username = str(username).strip()
+            emp_id = (
+                Empleado.objects.filter(cedula=clean_username, estado="ACTIVO")
+                .values_list('id', flat=True)
+                .first()
+            )
+            if emp_id:
+                return emp_id
+
+        user_id = getattr(user, 'id', None)
+        if user_id:
+            emp_id = (
+                Empleado.objects.filter(id=user_id, estado="ACTIVO")
+                .values_list('id', flat=True)
+                .first()
+            )
+            if emp_id:
+                return emp_id
+
+        return None
+
     @staticmethod
     def _sync_ots(actividad: Actividad, ots_data, actor_user_id=None):
         """
@@ -148,25 +192,25 @@ class ActividadService:
         payload.pop('ot', None)
 
         with transaction.atomic():
+            responsable_id = payload.get('responsable_id')
+
             if actor_user_id is not None:
                 from django.contrib.auth import get_user_model
-                from apps.empleados.models import Empleado
-
                 actor_user = get_user_model().objects.filter(id=actor_user_id).first()
                 if actor_user:
-                    empleado_perfil = Empleado.objects.filter(
-                        Q(cedula=actor_user.username) | Q(id=actor_user.id),
-                        estado="ACTIVO"
-                    ).first()
-
-                    if empleado_perfil:
-                        if payload.get('responsable_id') and payload['responsable_id'] != empleado_perfil.id:
+                    empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(actor_user)
+                    if empleado_perfil_id:
+                        if responsable_id and responsable_id != empleado_perfil_id:
                             raise ValueError(
                                 "El responsable de la actividad no puede ser una persona diferente a la de tu perfil."
                             )
-                        payload['responsable_id'] = empleado_perfil.id
+                        responsable_id = empleado_perfil_id
+                        payload['responsable_id'] = empleado_perfil_id
 
-            empleado = EmpleadoService().obtener_basico(payload['responsable_id'])
+            if not responsable_id:
+                raise ValueError("El responsable de la actividad es obligatorio.")
+
+            empleado = EmpleadoService().obtener_basico(responsable_id)
             if not empleado:
                 raise ValueError("El empleado responsable no existe o está inactivo.")
             

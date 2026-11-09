@@ -72,6 +72,9 @@ export const ActividadFormFields = ({
   mode,
   selectedEmployee,
   onEmployeeChange,
+  isResponsableDisabled = false,
+  employeeError,
+  onRetryLoadEmployee,
 }: ActividadFormFieldsProps) => {
   const { fields, append, remove } = useFieldArray({
     control,
@@ -79,6 +82,11 @@ export const ActividadFormFields = ({
   });
 
   const isEditMode = mode === "edit";
+  const isResponsableInactive =
+    isEditMode &&
+    Boolean(selectedEmployee?.estado && selectedEmployee.estado !== "ACTIVO");
+  const effectiveResponsableDisabled =
+    isResponsableDisabled && !isResponsableInactive;
   const otsErrorMessage = getArrayFieldErrorMessage(errors.ots);
 
   return (
@@ -111,26 +119,50 @@ export const ActividadFormFields = ({
           name="responsable_id"
           control={control}
           render={({ field }) => (
-            <EmployeeSearchInput
-              label="JEFE, LIDER, COORDINADOR"
-              placeholder="Responsable asignado por perfil..."
-              value={selectedEmployee}
-              disabled={true}
-              onChange={(empleado) => {
-                onEmployeeChange(empleado);
-                field.onChange(empleado?.id ?? 0);
-              }}
-              required={isActividadFieldRequired("responsable_id")}
-              error={!!errors.responsable_id}
-              hint={
-                errors.responsable_id
-                  ? String(errors.responsable_id.message)
-                  : isEditMode
-                    ? "El responsable de la actividad corresponde al perfil del jefe creador de la orden y no puede modificarse."
-                    : "El responsable de la actividad se asigna automáticamente según el perfil del usuario actual."
-              }
-              name="responsable_id"
-            />
+            <>
+              <EmployeeSearchInput
+                label="JEFE, LIDER, COORDINADOR"
+                placeholder={
+                  effectiveResponsableDisabled
+                    ? "Responsable asignado por perfil..."
+                    : "Busca y selecciona tu ficha de empleado..."
+                }
+                value={selectedEmployee}
+                disabled={effectiveResponsableDisabled}
+                onChange={(empleado) => {
+                  onEmployeeChange(empleado);
+                  field.onChange(empleado?.id ?? 0);
+                }}
+                required={isActividadFieldRequired("responsable_id")}
+                error={!!errors.responsable_id || !!employeeError}
+                hint={
+                  errors.responsable_id
+                    ? String(errors.responsable_id.message)
+                    : isEditMode
+                      ? isResponsableInactive
+                        ? "El responsable actual está inactivo. Puedes reasignarlo a un responsable activo o mantener el actual."
+                        : "El responsable de la actividad corresponde al perfil del jefe creador de la orden y no puede modificarse."
+                      : effectiveResponsableDisabled
+                        ? "El responsable de la actividad se asignó automáticamente según el perfil del usuario actual."
+                        : "No se resolvió automáticamente tu ficha de empleado. Selecciona tu perfil antes de guardar."
+                }
+                name="responsable_id"
+              />
+              {employeeError && (
+                <div className="mt-2 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300">
+                  <span>{employeeError}</span>
+                  {onRetryLoadEmployee && (
+                    <button
+                      type="button"
+                      onClick={onRetryLoadEmployee}
+                      className="ml-2 font-semibold underline hover:text-amber-950 dark:hover:text-amber-100"
+                    >
+                      Reintentar
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         />
       </div>

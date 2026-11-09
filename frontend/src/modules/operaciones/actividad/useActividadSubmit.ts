@@ -33,6 +33,7 @@ export const useActividadSubmit = () => {
     mode: "create" | "edit",
     id?: number,
     onSuccessCallback?: () => void,
+    initialResponsableId?: number,
   ) => {
     if (mode === "create" && (!data.responsable_id || data.responsable_id === 0)) {
       toast.error("El responsable de la actividad debe coincidir con el perfil del usuario actual.");
@@ -46,6 +47,12 @@ export const useActividadSubmit = () => {
 
     const method = mode === "create" ? "POST" : "PATCH";
     const payload = buildActividadPayload(data);
+
+    // Al editar: si el responsable no cambió respecto al original, omitir responsable_id del payload
+    // para no enviar IDs de empleados inactivos históricos ni revalidar autoría inalterada
+    if (mode === "edit" && initialResponsableId && data.responsable_id === initialResponsableId) {
+      delete (payload as Record<string, unknown>).responsable_id;
+    }
 
     await submit(payload, {
       endpoint,

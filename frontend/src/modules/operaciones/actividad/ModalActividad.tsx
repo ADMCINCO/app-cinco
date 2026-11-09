@@ -47,7 +47,13 @@ const ModalActividad = ({
           defaultValues={defaultValues}
           isLoading={isLoading}
           onSubmit={(data) =>
-            handleSubmit(data, mode, actividad?.id, closeModal)
+            handleSubmit(
+              data,
+              mode,
+              actividad?.id,
+              closeModal,
+              actividad?.responsable_id,
+            )
           }
           backendErrors={error?.errors}
           mode={mode}

@@ -55,11 +55,16 @@ export const getEmpleadoByCedula = async (
       });
       
       const items: Empleado[] = Array.isArray(res.data) ? res.data : res.data?.results || [];
-      // Buscar el empleado que coincida exactamente con la cédula
-      const empleado = items.find((emp: Empleado) => String(emp.cedula).trim() === cleanCedula) || items[0];
+      // Aceptar únicamente empleados cuya cédula o ID coincida exactamente, descartando coincidencias parciales
+      const target = cleanCedula.toLowerCase();
+      const empleado = items.find((emp: Empleado) => {
+        const empCedula = String(emp.cedula || "").trim().toLowerCase();
+        const empId = String(emp.id || "").trim();
+        return empCedula === target || empId === target;
+      });
       
       if (!empleado) {
-        throw new Error(`Empleado con cédula ${cleanCedula} no encontrado`);
+        throw new Error(`Empleado con cédula o ID ${cleanCedula} no encontrado`);
       }
       
       return empleado;

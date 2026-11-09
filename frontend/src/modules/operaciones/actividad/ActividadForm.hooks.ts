@@ -66,6 +66,11 @@ export const useActividadFormLogic = ({
   const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
     null,
   );
+  const [isIdentityResolved, setIsIdentityResolved] = useState<boolean>(
+    mode === "edit",
+  );
+  const [employeeError, setEmployeeError] = useState<string | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState<number>(0);
 
   const {
     control,
@@ -175,6 +180,8 @@ export const useActividadFormLogic = ({
     reset(defaultValues);
 
     const loadEmployee = async () => {
+      setEmployeeError(null);
+
       // Si estamos en modo creación, cargar obligatoriamente el empleado del perfil de sesión
       if (mode === "create") {
         try {
@@ -182,35 +189,74 @@ export const useActividadFormLogic = ({
           
           if (!user) {
             logDevelopmentWarning("No user found in session");
-            toast.error("No se encontró una sesión de usuario activa.");
+            setEmployeeError("No se encontró una sesión de usuario activa.");
             return;
           }
           
           if (!user.username) {
             logDevelopmentWarning("User has no username/cedula:", user);
-            toast.error("El usuario en sesión no posee cédula para asociar como responsable.");
+            setEmployeeError("El usuario en sesión no posee cédula para asociar como responsable.");
             return;
           }
 
           if (!isActive) return;
 
-          // Buscar empleado por cédula (username)
-          const empleado = await getEmpleadoByCedula(user.username);
-          
+          let empleado: Empleado | null = null;
+          let fetchFailed = false;
+
+          try {
+            empleado = await getEmpleadoByCedula(user.username);
+          } catch (err) {
+            fetchFailed = true;
+            if (user.id && Number(user.id) > 0) {
+              try {
+                empleado = await getEmpleadoById(Number(user.id));
+                fetchFailed = false;
+              } catch {
+                empleado = null;
+              }
+            }
+          }
+
           if (!isActive) return;
 
-          if (empleado) {
+          const userCedula = String(user.username).trim().toLowerCase();
+          const userId = Number(user.id);
+          const isExactMatch =
+            Boolean(empleado) &&
+            (String(empleado?.cedula || "").trim().toLowerCase() === userCedula ||
+              empleado?.id === userId);
+
+          if (empleado && isExactMatch) {
             setSelectedEmployee(empleado);
+            setIsIdentityResolved(true);
+            setEmployeeError(null);
             setValue("responsable_id", empleado.id);
             setValue("responsable_snapshot", buildResponsableSnapshot(empleado));
-            
+
             if (empleado.link_foto) {
               preloadAvatar(empleado.link_foto);
             }
           } else {
-            toast.error("No se encontró un empleado activo asociado a tu perfil.");
+            // Descartar coincidencias parciales: si no hay coincidencia exacta por cédula ni ID, no asignar responsable
+            setSelectedEmployee(null);
+            setIsIdentityResolved(false);
+            setValue("responsable_id", 0);
+            setEmployeeError(
+              fetchFailed
+                ? "Error de conexión al consultar el perfil de empleado."
+                : "No se encontró un empleado activo que coincida exactamente con tu cédula o ID."
+            );
           }
         } catch (error) {
+          if (!isActive) return;
+          setSelectedEmployee(null);
+          setIsIdentityResolved(false);
+          setValue("responsable_id", 0);
+          setEmployeeError(
+            "Error al consultar el perfil de empleado: " +
+              (error instanceof Error ? error.message : "Error de red")
+          );
           logDevelopmentWarning(
             "Could not load employee for current user:",
             error instanceof Error ? error.message : String(error),
@@ -252,10 +298,14 @@ export const useActividadFormLogic = ({
     return () => {
       isActive = false;
     };
-  }, [defaultValues, reset, mode, setValue]);
+  }, [defaultValues, reset, mode, setValue, retryTrigger]);
 
   // Aplicar errores del backend al formulario
   useBackendErrors(backendErrors, setError);
+
+  const retryLoadEmployee = () => {
+    setRetryTrigger((prev) => prev + 1);
+  };
 
   const handleEmployeeChange = (empleado: Empleado | null) => {
     setSelectedEmployee(empleado);
@@ -281,5 +331,8 @@ export const useActividadFormLogic = ({
     handleInvalidSubmit,
     selectedEmployee,
     handleEmployeeChange,
+    isIdentityResolved,
+    employeeError,
+    retryLoadEmployee,
   };
 };

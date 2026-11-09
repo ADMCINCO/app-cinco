@@ -82,10 +82,10 @@ export const ActividadSchema = z.object({
   responsable_snapshot: z
     .object({
       nombre: z.string().min(1, "El nombre del responsable es requerido"),
-      area: z.string().min(1, "El área del responsable es requerida"),
-      carpeta: z.string().min(1, "La carpeta del responsable es requerida"),
-      cargo: z.string().min(1, "El cargo del responsable es requerido"),
-      movil: z.string().optional(),
+      area: z.string().optional().default(""),
+      carpeta: z.string().optional().default(""),
+      cargo: z.string().optional().default(""),
+      movil: z.string().optional().default(""),
     })
     .optional(),
 

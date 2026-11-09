@@ -161,13 +161,8 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
         """
         request = self.context.get('request')
         if self.instance is None and request and getattr(request, 'user', None) and request.user.is_authenticated:
-            from apps.empleados.models import Empleado
-            from django.db.models import Q
-            empleado_perfil = Empleado.objects.filter(
-                Q(cedula=request.user.username) | Q(id=request.user.id),
-                estado="ACTIVO"
-            ).first()
-            if empleado_perfil and value != empleado_perfil.id:
+            empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(request.user)
+            if empleado_perfil_id and value != empleado_perfil_id:
                 raise serializers.ValidationError(
                     "El responsable de la actividad no puede ser otra persona diferente a la de tu perfil."
                 )

@@ -19,6 +19,9 @@ const ActividadForm = ({
     handleInvalidSubmit,
     selectedEmployee,
     handleEmployeeChange,
+    isIdentityResolved,
+    employeeError,
+    retryLoadEmployee,
   } = useActividadFormLogic({
     defaultValues,
     backendErrors,
@@ -37,6 +40,9 @@ const ActividadForm = ({
         mode={mode}
         selectedEmployee={selectedEmployee}
         onEmployeeChange={handleEmployeeChange}
+        isResponsableDisabled={mode === "edit" || isIdentityResolved}
+        employeeError={employeeError}
+        onRetryLoadEmployee={retryLoadEmployee}
       />
 
       <div className="mt-6 flex justify-end gap-3">
