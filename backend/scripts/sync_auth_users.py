@@ -2,6 +2,7 @@ import csv
 import os
 import argparse
 import sys
+import re
 from pathlib import Path
 
 import django
@@ -23,6 +24,20 @@ def normalize_text(value) -> str:
 
 def is_active_from_estado(estado: str) -> bool:
     return normalize_text(estado).upper() == "ACTIVO"
+
+
+def is_identity_conflict(error, vendor: str) -> bool:
+    """Recognize only duplicate auth_user IDs or usernames, not other constraints."""
+    cause = error.__cause__
+    if vendor == "mysql" and cause and len(cause.args) >= 2 and cause.args[0] == 1062:
+        match = re.search(r"for key ['`]([^'`]+)['`]$", str(cause.args[1]))
+        return bool(match and match.group(1).split(".")[-1] in {"PRIMARY", "username"})
+    if vendor == "sqlite" and cause:
+        return str(cause) in {
+            "UNIQUE constraint failed: auth_user.id",
+            "UNIQUE constraint failed: auth_user.username",
+        }
+    return False
 
 
 def get_total_rows() -> int:
@@ -82,6 +97,7 @@ def main() -> int:
     setup_django()
 
     from django.contrib.auth.models import User
+    from django.db import IntegrityError, connections, router, transaction
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,7 +171,15 @@ def main() -> int:
             )
             temp_password = username
             user.set_password(temp_password)
-            user.save(force_insert=True)
+            database = router.db_for_write(User, instance=user)
+            try:
+                with transaction.atomic(using=database):
+                    user.save(force_insert=True, using=database)
+            except IntegrityError as error:
+                if not is_identity_conflict(error, connections[database].vendor):
+                    raise
+                skipped_count += 1
+                continue
             existing_ids.add(source_id)
             existing_usernames.add(username)
             created_count += 1
