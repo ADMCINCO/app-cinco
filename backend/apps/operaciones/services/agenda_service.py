@@ -260,7 +260,19 @@ class AgendaService:
     def save_agenda(data: Dict[str, Any], user: Optional[Any] = None) -> Dict[str, Any]:
         """
         Crea o actualiza un agendamiento en la tabla `operaciones_agenda`.
-        Soporta el formato limpio relacional y el formato data_form de retrocompatibilidad.
+
+        Soporta el formato relacional y retrocompatibilidad con `data_form`.
+        Preserva los datos macro de la actividad (no sobreescribe responsable ni fechas de OTs).
+
+        Args:
+            data: Diccionario con la información del agendamiento y técnico asignado.
+            user: Usuario autenticado que realiza la operación.
+
+        Returns:
+            Dict[str, Any]: Diccionario con el resultado de la operación y el registro persistido.
+
+        Raises:
+            ValueError: Si los datos son inválidos, las fechas son incorrectas o no existe la actividad.
         """
         if not data or not isinstance(data, dict):
             raise ValueError("No se recibieron datos válidos para agendar.")

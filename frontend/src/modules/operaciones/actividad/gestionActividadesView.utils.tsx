@@ -38,6 +38,41 @@ const formatOts = (ots?: any[]) => {
     .join(", ");
 };
 
+/**
+ * Determina el color semántico del badge de estado según el valor normalizado.
+ *
+ * @param est Nombre normalizado del estado de la actividad en minúsculas.
+ * @returns Identificador de color de badge ('success' | 'warning' | 'info' | 'error').
+ */
+export const getActividadBadgeColor = (
+  est: string,
+): "success" | "warning" | "info" | "error" => {
+  switch (est) {
+    case "completada":
+      return "success";
+    case "pendiente":
+      return "warning";
+    case "en_progreso":
+      return "info";
+    case "pausada":
+      return "warning";
+    case "reprogramada":
+      return "info";
+    case "cancelada":
+      return "error";
+    default:
+      return "warning";
+  }
+};
+
+/**
+ * Genera la configuración de columnas de la tabla de actividades para TanStack Table.
+ *
+ * Incluye formateadores de fecha, visualización normalizada de estado mediante badges
+ * y componentes interactivos para edición y detalle de registros.
+ *
+ * @returns Lista de definiciones de columna tipadas para `ActividadRecord`.
+ */
 export const getActividadesColumns = (): ColumnDef<ActividadRecord>[] => [
   {
     id: "acciones",
@@ -87,27 +122,8 @@ export const getActividadesColumns = (): ColumnDef<ActividadRecord>[] => [
       const rawEstado = row.original.estado || "Sin estado";
       const estadoNorm = rawEstado.trim().toLowerCase();
 
-      const getBadgeColor = (est: string) => {
-        switch (est) {
-          case "completada":
-            return "success";
-          case "pendiente":
-            return "warning";
-          case "en_progreso":
-            return "info";
-          case "pausada":
-            return "warning";
-          case "reprogramada":
-            return "info";
-          case "cancelada":
-            return "error";
-          default:
-            return "warning";
-        }
-      };
-
       return (
-        <Badge size="sm" color={getBadgeColor(estadoNorm)}>
+        <Badge size="sm" color={getActividadBadgeColor(estadoNorm)}>
           {estadoNorm}
         </Badge>
       );

@@ -16,6 +16,17 @@ from apps.operaciones.models import (
 class ActividadService:
     @staticmethod
     def _sync_ots(actividad: Actividad, ots_data, actor_user_id=None):
+        """
+        Sincroniza las relaciones de Órdenes de Trabajo (OTs) asociadas a una actividad.
+
+        Actualiza el código principal de la OT, activa o desactiva relaciones según los
+        datos provistos y recalcula el rango de fechas macro de la actividad.
+
+        Args:
+            actividad: Instancia de Actividad a sincronizar.
+            ots_data: Lista de diccionarios con la información de cada OT y sus fechas.
+            actor_user_id: ID del usuario que ejecuta la sincronización.
+        """
         # ots_data es una lista de diccionarios: [{'ot': '...', 'fecha_inicio': '...', 'fecha_fin': '...'}]
         # Extraemos los códigos de OT limpios
         ot_codes = [item['ot'].strip() for item in ots_data if item.get('ot')]
@@ -88,6 +99,16 @@ class ActividadService:
 
     @staticmethod
     def validar_ots_unicas(ots, actividad_id=None):
+        """
+        Valida que los códigos de OT suministrados no estén ya asignados a otra actividad activa.
+
+        Args:
+            ots: Lista o colección de códigos de OT a verificar.
+            actividad_id: ID opcional de la actividad actual para excluirla de la verificación.
+
+        Raises:
+            ValueError: Si alguna de las OTs ya está asociada a otra actividad activa.
+        """
         normalized_ots = normalize_ot_values(ots)
         if not normalized_ots:
             return
@@ -105,6 +126,21 @@ class ActividadService:
 
     @staticmethod
     def crear(data: dict, actor_user_id=None) -> Actividad:
+        """
+        Crea una nueva Actividad junto con su detalle, ubicación, snapshot y relaciones de OTs.
+
+        Normaliza el campo de estado a minúsculas y garantiza atomicidad transaccional.
+
+        Args:
+            data: Diccionario con la información completa de la actividad y entidades asociadas.
+            actor_user_id: ID del usuario creador de la actividad.
+
+        Returns:
+            Actividad: La instancia recién creada y persistida en base de datos.
+
+        Raises:
+            ValueError: Si el responsable no existe o si las OTs están duplicadas.
+        """
         payload = data.copy()
         detalle_data = payload.pop('detalle')
         ubicacion_data = payload.pop('ubicacion')
@@ -158,6 +194,22 @@ class ActividadService:
 
     @staticmethod
     def actualizar(instance: Actividad, validated_data: dict, actor_user_id=None) -> Actividad:
+        """
+        Actualiza una Actividad existente y sus relaciones asociadas.
+
+        Normaliza el estado a minúsculas y sincroniza detalle, ubicación y OTs según aplique.
+
+        Args:
+            instance: Instancia de Actividad a modificar.
+            validated_data: Diccionario con los campos validados a actualizar.
+            actor_user_id: ID del usuario que ejecuta la actualización.
+
+        Returns:
+            Actividad: La instancia actualizada.
+
+        Raises:
+            ValueError: Si el responsable asignado no existe o si las OTs entran en conflicto.
+        """
         detalle_data = validated_data.pop('detalle', None)
         ubicacion_data = validated_data.pop('ubicacion', None)
         ots = validated_data.pop('ots', None)
@@ -217,6 +269,19 @@ class ActividadService:
 
     @staticmethod
     def listar(usuario_id=None, filtros=None):
+        """
+        Consulta y filtra las actividades activas del sistema.
+
+        Aplica filtros avanzados (OT, estado insensible a mayúsculas, área, carpeta, búsqueda de texto)
+        y precarga las relaciones necesarias para optimizar consultas.
+
+        Args:
+            usuario_id: ID opcional del usuario para filtrar actividades por asignación.
+            filtros: Diccionario con parámetros opcionales de búsqueda y filtrado.
+
+        Returns:
+            QuerySet: Conjunto de actividades filtradas y optimizadas.
+        """
         queryset = Actividad.objects.filter(is_deleted=False).select_related(
             'detalle',
             'ubicacion',
@@ -288,6 +353,17 @@ class ActividadService:
 
     @staticmethod
     def eliminar(instance: Actividad, actor_user=None, hard_delete=False) -> bool:
+        """
+        Elimina una actividad de forma lógica (soft delete) o física (hard delete).
+
+        Args:
+            instance: Instancia de Actividad a eliminar.
+            actor_user: Usuario autenticado que solicita la eliminación.
+            hard_delete: Booleano indicando si se debe borrar físicamente el registro (requiere superusuario).
+
+        Returns:
+            bool: True si la eliminación fue exitosa, False en caso contrario.
+        """
         if hard_delete:
             if not actor_user or not actor_user.is_authenticated or not actor_user.is_superuser:
                 return False

@@ -11,7 +11,20 @@ from apps.operaciones.services.actividad_service import ActividadService
 
 
 class OptionalDateField(serializers.DateField):
+    """
+    Campo de fecha flexible que acepta valores vacíos o nulos comunes en frontend.
+    """
+
     def to_internal_value(self, value):
+        """
+        Convierte y normaliza cadenas vacías o representaciones de nulo a None.
+
+        Args:
+            value: Valor entrante que representa una fecha.
+
+        Returns:
+            date | None: Fecha parseada o None si el valor está vacío.
+        """
         if isinstance(value, str):
             value = value.strip()
         if value in ("", None, "null", "undefined"):
@@ -117,6 +130,17 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
         )
 
     def to_internal_value(self, data):
+        """
+        Preprocesa y normaliza los datos de entrada antes de la validación del serializer.
+
+        Convierte el campo estado a minúsculas para asegurar consistencia con los choices del modelo.
+
+        Args:
+            data: Diccionario de datos crudos enviados en la solicitud.
+
+        Returns:
+            dict: Diccionario procesado con tipos internos validados.
+        """
         if isinstance(data, dict) and 'estado' in data and isinstance(data['estado'], str):
             data = data.copy()
             data['estado'] = data['estado'].strip().lower()
@@ -200,6 +224,17 @@ class ActividadSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
     def to_representation(self, instance):
+        """
+        Transforma la instancia del modelo en representación serializada para respuesta API.
+
+        Garantiza que el campo estado se entregue normalizado en minúsculas.
+
+        Args:
+            instance: Instancia de Actividad a serializar.
+
+        Returns:
+            dict: Representación serializada del registro.
+        """
         data = super().to_representation(instance)
         if data.get('estado'):
             data['estado'] = str(data['estado']).strip().lower()

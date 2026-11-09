@@ -22,6 +22,15 @@ export const actividadCreateDefaultValues: ActividadFormData = {
   },
 };
 
+/**
+ * Transforma un registro de actividad existente en los valores por defecto requeridos por el formulario de edición.
+ *
+ * Mapea la lista de OTs vinculadas asegurando que la OT principal encabece la lista,
+ * normaliza el campo estado a minúsculas y estructura las secciones de detalle y ubicación.
+ *
+ * @param actividad Registro de la actividad obtenido del backend o caché.
+ * @returns Estructura de datos compatible con `ActividadFormData`.
+ */
 export const actividadEditDefaultValues = (
   actividad: any,
 ): ActividadFormData => {
