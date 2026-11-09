@@ -148,6 +148,24 @@ class ActividadService:
         payload.pop('ot', None)
 
         with transaction.atomic():
+            if actor_user_id is not None:
+                from django.contrib.auth import get_user_model
+                from apps.empleados.models import Empleado
+
+                actor_user = get_user_model().objects.filter(id=actor_user_id).first()
+                if actor_user:
+                    empleado_perfil = Empleado.objects.filter(
+                        Q(cedula=actor_user.username) | Q(id=actor_user.id),
+                        estado="ACTIVO"
+                    ).first()
+
+                    if empleado_perfil:
+                        if payload.get('responsable_id') and payload['responsable_id'] != empleado_perfil.id:
+                            raise ValueError(
+                                "El responsable de la actividad no puede ser una persona diferente a la de tu perfil."
+                            )
+                        payload['responsable_id'] = empleado_perfil.id
+
             empleado = EmpleadoService().obtener_basico(payload['responsable_id'])
             if not empleado:
                 raise ValueError("El empleado responsable no existe o está inactivo.")

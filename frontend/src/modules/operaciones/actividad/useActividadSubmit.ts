@@ -34,6 +34,11 @@ export const useActividadSubmit = () => {
     id?: number,
     onSuccessCallback?: () => void,
   ) => {
+    if (mode === "create" && (!data.responsable_id || data.responsable_id === 0)) {
+      toast.error("El responsable de la actividad debe coincidir con el perfil del usuario actual.");
+      return;
+    }
+
     const endpoint =
       mode === "create"
         ? "/operaciones/actividades/"

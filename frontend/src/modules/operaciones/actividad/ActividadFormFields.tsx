@@ -113,8 +113,9 @@ export const ActividadFormFields = ({
           render={({ field }) => (
             <EmployeeSearchInput
               label="JEFE, LIDER, COORDINADOR"
-              placeholder="Buscar responsable..."
+              placeholder="Responsable asignado por perfil..."
               value={selectedEmployee}
+              disabled={true}
               onChange={(empleado) => {
                 onEmployeeChange(empleado);
                 field.onChange(empleado?.id ?? 0);
@@ -124,7 +125,9 @@ export const ActividadFormFields = ({
               hint={
                 errors.responsable_id
                   ? String(errors.responsable_id.message)
-                  : "Busca por nombre, cédula, cargo o móvil"
+                  : isEditMode
+                    ? "El responsable de la actividad corresponde al perfil del jefe creador de la orden y no puede modificarse."
+                    : "El responsable de la actividad se asigna automáticamente según el perfil del usuario actual."
               }
               name="responsable_id"
             />

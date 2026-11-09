@@ -184,10 +184,16 @@ class ActividadViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         actor_user_id = self._get_authenticated_user_id(request.user)
-        actividad = ActividadService.crear(
-            serializer.validated_data,
-            actor_user_id=actor_user_id,
-        )
+        try:
+            actividad = ActividadService.crear(
+                serializer.validated_data,
+                actor_user_id=actor_user_id,
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response(
             ActividadSerializer(actividad).data,

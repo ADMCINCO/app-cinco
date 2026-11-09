@@ -175,18 +175,20 @@ export const useActividadFormLogic = ({
     reset(defaultValues);
 
     const loadEmployee = async () => {
-      // Si estamos en modo creación y no hay empleado seleccionado, cargar el usuario de sesión
-      if (mode === "create" && (!defaultValues.responsable_id || defaultValues.responsable_id === 0)) {
+      // Si estamos en modo creación, cargar obligatoriamente el empleado del perfil de sesión
+      if (mode === "create") {
         try {
           const user = getUser();
           
           if (!user) {
             logDevelopmentWarning("No user found in session");
+            toast.error("No se encontró una sesión de usuario activa.");
             return;
           }
           
           if (!user.username) {
             logDevelopmentWarning("User has no username/cedula:", user);
+            toast.error("El usuario en sesión no posee cédula para asociar como responsable.");
             return;
           }
 
@@ -205,6 +207,8 @@ export const useActividadFormLogic = ({
             if (empleado.link_foto) {
               preloadAvatar(empleado.link_foto);
             }
+          } else {
+            toast.error("No se encontró un empleado activo asociado a tu perfil.");
           }
         } catch (error) {
           logDevelopmentWarning(

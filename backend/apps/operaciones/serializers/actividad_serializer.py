@@ -147,8 +147,33 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data)
 
     def validate_responsable_id(self, value):
+        """
+        Valida que el empleado responsable exista y, en creación, coincida con el usuario del perfil autenticado.
+
+        Args:
+            value: ID del empleado asignado como responsable.
+
+        Returns:
+            int: ID validado del empleado.
+
+        Raises:
+            serializers.ValidationError: Si el empleado no existe o no coincide con el perfil del creador.
+        """
+        request = self.context.get('request')
+        if self.instance is None and request and getattr(request, 'user', None) and request.user.is_authenticated:
+            from apps.empleados.models import Empleado
+            from django.db.models import Q
+            empleado_perfil = Empleado.objects.filter(
+                Q(cedula=request.user.username) | Q(id=request.user.id),
+                estado="ACTIVO"
+            ).first()
+            if empleado_perfil and value != empleado_perfil.id:
+                raise serializers.ValidationError(
+                    "El responsable de la actividad no puede ser otra persona diferente a la de tu perfil."
+                )
+
         if not EmpleadoService().existe(value):
-            raise serializers.ValidationError("El empleado no existe.")
+            raise serializers.ValidationError("El empleado no existe o no está activo.")
         return value
 
     def validate(self, attrs):
