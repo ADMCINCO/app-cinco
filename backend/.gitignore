@@ -1,0 +1,34 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environment & Virtualenvs
+.env
+.env.local
+*.env
+.venv/
+venv/
+env/
+
+# Django local database & media
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+static/
+logs/
+*.log
+
+# Debug dumps and temporary exports
+debug_*.json
+*_debug.json
+tmp/
+tmp_*.json
+scratch/
+scripts/tmp/
+tmp_provider_serial_validation_exports/
+tmp_provider_serial_validation_runtime/
+

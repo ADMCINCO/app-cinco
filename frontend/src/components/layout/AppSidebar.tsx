@@ -77,8 +77,6 @@ const defaultNavItems: NavItem[] = [
   },
 ];
 
-const othersItems: NavItem[] = [];
-
 const AppSidebar: React.FC = () => {
   const {
     isExpanded,
@@ -301,20 +299,17 @@ const AppSidebar: React.FC = () => {
     let matchedSubmenu: { type: "main" | "others"; index: number } | null =
       null;
 
-    ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (subItem.path === pathname) {
-              matchedSubmenu = {
-                type: menuType as "main" | "others",
-                index,
-              };
-            }
-          });
-        }
-      });
+    navItems.forEach((nav, index) => {
+      if (nav.subItems) {
+        nav.subItems.forEach((subItem) => {
+          if (subItem.path === pathname) {
+            matchedSubmenu = {
+              type: "main",
+              index,
+            };
+          }
+        });
+      }
     });
 
     // Sync submenu open state with current route.
@@ -411,18 +406,6 @@ const AppSidebar: React.FC = () => {
               </h2>
               {renderMenuItems(navItems, "main")}
             </div>
-
-            {othersItems.length > 0 && (
-              <div>
-                <h2
-                  className={`mb-4 flex text-xs leading-5 text-gray-400 uppercase ${!isSidebarOpen ? "lg:justify-center" : "justify-start"
-                    }`}
-                >
-                  {isSidebarOpen ? "Others" : <HorizontaLDots />}
-                </h2>
-                {renderMenuItems(othersItems, "others")}
-              </div>
-            )}
           </div>
         </nav>
       </div>
