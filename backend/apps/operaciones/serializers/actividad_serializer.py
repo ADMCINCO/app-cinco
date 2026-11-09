@@ -116,6 +116,12 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
             'ubicacion'
         )
 
+    def to_internal_value(self, data):
+        if isinstance(data, dict) and 'estado' in data and isinstance(data['estado'], str):
+            data = data.copy()
+            data['estado'] = data['estado'].strip().lower()
+        return super().to_internal_value(data)
+
     def validate_responsable_id(self, value):
         if not EmpleadoService().existe(value):
             raise serializers.ValidationError("El empleado no existe.")
@@ -192,6 +198,12 @@ class ActividadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Actividad
         fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get('estado'):
+            data['estado'] = str(data['estado']).strip().lower()
+        return data
 
     def get_responsable_snapshot(self, obj):
         if hasattr(obj, 'responsable_snapshot'):

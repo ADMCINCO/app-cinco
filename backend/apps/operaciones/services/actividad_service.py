@@ -123,6 +123,8 @@ class ActividadService:
                 payload['created_by_id'] = actor_user_id
                 payload['updated_by_id'] = actor_user_id
             payload['ot'] = ot_codes[0] if ot_codes else ""
+            if payload.get('estado'):
+                payload['estado'] = str(payload['estado']).strip().lower()
 
             actividad = Actividad.objects.create(**payload)
 
@@ -164,6 +166,9 @@ class ActividadService:
             if ots is not None:
                 ot_codes = [item['ot'] for item in ots if item.get('ot')]
                 ActividadService.validar_ots_unicas(ot_codes, actividad_id=instance.id)
+
+            if validated_data.get('estado'):
+                validated_data['estado'] = str(validated_data['estado']).strip().lower()
 
             for field, value in validated_data.items():
                 setattr(instance, field, value)
@@ -232,7 +237,7 @@ class ActividadService:
             ).distinct()
 
         if filtros.get('estado'):
-            queryset = queryset.filter(estado=filtros['estado'])
+            queryset = queryset.filter(estado__iexact=str(filtros['estado']).strip())
 
         if filtros.get('area'):
             queryset = queryset.filter(

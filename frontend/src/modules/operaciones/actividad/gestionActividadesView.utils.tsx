@@ -84,19 +84,31 @@ export const getActividadesColumns = (): ColumnDef<ActividadRecord>[] => [
     header: "ESTADO",
     accessorKey: "estado",
     cell: ({ row }) => {
-      const estado = row.original.estado || "Sin estado";
+      const rawEstado = row.original.estado || "Sin estado";
+      const estadoNorm = rawEstado.trim().toLowerCase();
+
+      const getBadgeColor = (est: string) => {
+        switch (est) {
+          case "completada":
+            return "success";
+          case "pendiente":
+            return "warning";
+          case "en_progreso":
+            return "info";
+          case "pausada":
+            return "warning";
+          case "reprogramada":
+            return "info";
+          case "cancelada":
+            return "error";
+          default:
+            return "warning";
+        }
+      };
+
       return (
-        <Badge
-          size="sm"
-          color={
-            estado == "completada"
-              ? "success"
-              : estado == "pendiente"
-                ? "warning"
-                : "error"
-          }
-        >
-          {estado}
+        <Badge size="sm" color={getBadgeColor(estadoNorm)}>
+          {estadoNorm}
         </Badge>
       );
     },

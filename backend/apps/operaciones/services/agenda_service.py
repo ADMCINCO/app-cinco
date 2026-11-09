@@ -363,33 +363,16 @@ class AgendaService:
                 )
                 msg = "Agendamiento creado correctamente."
 
-            # 1. Sincronizar Actividad principal (operaciones_actividades)
-            act_updates = []
+            # 1. Sincronizar estado en Actividad principal (si se especifica)
+            # NOTA DE DOMINIO: El responsable de la actividad es el jefe creador de la OT y una actividad
+            # puede vincularse a múltiples técnicos en la agenda. No se debe sobreescribir responsable_id
+            # ni las fechas macro de la actividad en cada agendamiento individual.
             nuevo_estado = data.get("estado") or (data_form.get("estado") if isinstance(data_form, dict) else None)
             if nuevo_estado and str(nuevo_estado).strip():
-                actividad.estado = str(nuevo_estado).strip().upper()
-                act_updates.append("estado")
-
-            if actividad.responsable_id != responsable.id:
-                actividad.responsable_id = responsable.id
-                act_updates.append("responsable_id")
-
-            if actividad.fecha_inicio != f_ini:
-                actividad.fecha_inicio = f_ini
-                act_updates.append("fecha_inicio")
-
-            if actividad.fecha_fin_estimado != f_fin:
-                actividad.fecha_fin_estimado = f_fin
-                act_updates.append("fecha_fin_estimado")
-
-            if act_updates:
-                actividad.save(update_fields=act_updates)
-
-            # Sincronizar fechas en las relaciones de OTs vinculadas
-            actividad.ot_relaciones.filter(is_active=True).update(
-                fecha_inicio=f_ini,
-                fecha_fin=f_fin
-            )
+                estado_clean = str(nuevo_estado).strip().lower()
+                if actividad.estado != estado_clean:
+                    actividad.estado = estado_clean
+                    actividad.save(update_fields=["estado"])
 
             # 2. Sincronizar Detalle (operaciones_actividaddetalle)
             tipo_trabajo = data.get("tipo_trabajo") or (data_form.get("nombre_param") if isinstance(data_form, dict) else None)

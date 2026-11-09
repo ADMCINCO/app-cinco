@@ -5,6 +5,7 @@ import { ActividadFormData } from "@/schemas/actividades.schema";
 export const actividadCreateDefaultValues: ActividadFormData = {
   ots: [{ ot: "", fecha_inicio: new Date().toISOString().split("T")[0], fecha_fin: "" }], // El primer elemento (ots.0) representa a la OT Padre en creación
   responsable_id: 0,
+  estado: "pendiente",
   fecha_inicio: new Date().toISOString().split("T")[0],
   fecha_fin_estimado: "",
   fecha_fin_real: null,
@@ -61,7 +62,7 @@ export const actividadEditDefaultValues = (
   return {
     id: actividad.id,
     ots: otsMapped,
-    estado: actividad.estado,
+    estado: actividad.estado ? String(actividad.estado).trim().toLowerCase() : "pendiente",
     responsable_id: actividad.responsable_id,
     responsable_snapshot: actividad.responsable_snapshot,
     fecha_inicio: actividad.fecha_inicio,
