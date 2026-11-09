@@ -162,7 +162,11 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if self.instance is None and request and getattr(request, 'user', None) and request.user.is_authenticated:
             empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(request.user)
-            if empleado_perfil_id and value != empleado_perfil_id:
+            if not empleado_perfil_id:
+                raise serializers.ValidationError(
+                    "No se encontró un perfil de empleado activo asociado a tu usuario para asignarlo como responsable."
+                )
+            if value != empleado_perfil_id:
                 raise serializers.ValidationError(
                     "El responsable de la actividad no puede ser otra persona diferente a la de tu perfil."
                 )
@@ -263,6 +267,7 @@ class ActividadSerializer(serializers.ModelSerializer):
     def get_responsable_snapshot(self, obj):
         if hasattr(obj, 'responsable_snapshot'):
             return {
+                "empleado_id": obj.responsable_snapshot.empleado_id,
                 "nombre": obj.responsable_snapshot.nombre,
                 "area": obj.responsable_snapshot.area,
                 "carpeta": obj.responsable_snapshot.carpeta,

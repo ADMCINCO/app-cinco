@@ -81,6 +81,7 @@ export const ActividadSchema = z.object({
 
   responsable_snapshot: z
     .object({
+      empleado_id: z.number().optional(),
       nombre: z.string().min(1, "El nombre del responsable es requerido"),
       area: z.string().optional().default(""),
       carpeta: z.string().optional().default(""),
@@ -187,6 +188,7 @@ export const ActividadRecordSchema = z.object({
   }),
   responsable_snapshot: z
     .object({
+      empleado_id: z.number().optional(),
       nombre: z.string().optional().default(""),
       area: z.string().optional().default(""),
       carpeta: z.string().optional().default(""),
@@ -281,6 +283,7 @@ export const normalizeActividadFromApi = (value: unknown) => {
     },
     responsable_snapshot: responsable
       ? {
+          empleado_id: toNumberOrUndefined(responsable.empleado_id),
           nombre: toOptionalString(responsable.nombre) ?? "",
           area: toOptionalString(responsable.area) ?? "",
           carpeta: toOptionalString(responsable.carpeta) ?? "",

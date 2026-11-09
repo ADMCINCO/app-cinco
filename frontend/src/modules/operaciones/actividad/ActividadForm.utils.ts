@@ -39,12 +39,18 @@ export const buildResponsableSnapshot = (empleado: Empleado) => ({
 export const getSnapshotEmpleado = (
   defaultValues: ActividadFormData,
 ): Empleado | null => {
-  if (!defaultValues.responsable_snapshot || !defaultValues.responsable_id) {
+  if (!defaultValues.responsable_snapshot) {
+    return null;
+  }
+  const empId =
+    defaultValues.responsable_snapshot.empleado_id ||
+    defaultValues.responsable_id;
+  if (!empId || empId <= 0) {
     return null;
   }
 
   return {
-    id: defaultValues.responsable_id,
+    id: empId,
     cedula: "",
     nombre: defaultValues.responsable_snapshot.nombre.split(" ")[0] || "",
     apellido:

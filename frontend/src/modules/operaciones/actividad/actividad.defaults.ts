@@ -72,7 +72,7 @@ export const actividadEditDefaultValues = (
     id: actividad.id,
     ots: otsMapped,
     estado: actividad.estado ? String(actividad.estado).trim().toLowerCase() : "pendiente",
-    responsable_id: actividad.responsable_id,
+    responsable_id: actividad.responsable_snapshot?.empleado_id || actividad.responsable_id,
     responsable_snapshot: actividad.responsable_snapshot,
     fecha_inicio: actividad.fecha_inicio,
     fecha_fin_estimado: actividad.fecha_fin_estimado,

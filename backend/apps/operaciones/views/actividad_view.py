@@ -58,6 +58,7 @@ class ActividadViewSet(ModelViewSet):
         return ActividadService.listar(
             usuario_id=usuario_id,
             filtros=self._get_filtros(),
+            user=user,
         )
 
     def get_serializer_class(self):

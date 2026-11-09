@@ -317,6 +317,15 @@ class AgendaService:
             responsable_id = actividad.responsable_id
 
         responsable = User.objects.filter(id=responsable_id, is_active=True).first()
+        if not responsable and responsable_id:
+            from apps.empleados.services import EmpleadoService
+            emp = EmpleadoService().obtener_basico(responsable_id)
+            if emp and emp.get("cedula"):
+                responsable = User.objects.filter(username=emp["cedula"], is_active=True).first()
+
+        if not responsable and actividad.responsable_id:
+            responsable = User.objects.filter(id=actividad.responsable_id, is_active=True).first()
+
         if not responsable:
             raise ValueError(f"El técnico con ID {responsable_id} no existe en los usuarios del sistema.")
 

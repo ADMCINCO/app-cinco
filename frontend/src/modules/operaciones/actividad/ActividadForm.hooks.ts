@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isAxiosError } from "axios";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FieldErrors, useForm, useWatch } from "react-hook-form";
 import {
@@ -56,6 +57,31 @@ const getFirstFieldErrorMessage = (
   };
 
   return visit(errors);
+};
+
+/**
+ * Determina si un error corresponde a un fallo de red o del servidor (5xx o sin respuesta),
+ * diferenciándolo de errores de recursos no encontrados (404) o validaciones de negocio.
+ *
+ * @param error Error capturado durante la consulta HTTP o resolución del empleado.
+ * @returns true si el fallo se debió a problemas de conexión o errores 5xx del servidor.
+ */
+export const isNetworkOrServerError = (error: unknown): boolean => {
+  if (isAxiosError(error)) {
+    if (!error.response) {
+      return true;
+    }
+    return error.response.status >= 500;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    if (message.includes("no encontrado") || message.includes("not found")) {
+      return false;
+    }
+  }
+
+  return false;
 };
 
 export const useActividadFormLogic = ({
@@ -174,10 +200,14 @@ export const useActividadFormLogic = ({
     watchFechaInicioPadre,
   ]);
 
+  // Restablecer valores por defecto del formulario de manera independiente
+  useEffect(() => {
+    reset(defaultValues);
+  }, [defaultValues, reset]);
+
+  // Cargar perfil del empleado responsable según el modo
   useEffect(() => {
     let isActive = true;
-
-    reset(defaultValues);
 
     const loadEmployee = async () => {
       setEmployeeError(null);
@@ -204,15 +234,28 @@ export const useActividadFormLogic = ({
           let empleado: Empleado | null = null;
           let fetchFailed = false;
 
+          const userCedula = String(user.username).trim().toLowerCase();
+
           try {
             empleado = await getEmpleadoByCedula(user.username);
           } catch (err) {
-            fetchFailed = true;
+            if (isNetworkOrServerError(err)) {
+              fetchFailed = true;
+            }
             if (user.id && Number(user.id) > 0) {
               try {
-                empleado = await getEmpleadoById(Number(user.id));
-                fetchFailed = false;
-              } catch {
+                const candidate = await getEmpleadoById(Number(user.id));
+                const candidateCedula = String(candidate?.cedula || "").trim().toLowerCase();
+                if (candidate && candidateCedula === userCedula) {
+                  empleado = candidate;
+                  fetchFailed = false;
+                } else {
+                  empleado = null;
+                }
+              } catch (idErr) {
+                if (isNetworkOrServerError(idErr)) {
+                  fetchFailed = true;
+                }
                 empleado = null;
               }
             }
@@ -220,12 +263,9 @@ export const useActividadFormLogic = ({
 
           if (!isActive) return;
 
-          const userCedula = String(user.username).trim().toLowerCase();
-          const userId = Number(user.id);
           const isExactMatch =
             Boolean(empleado) &&
-            (String(empleado?.cedula || "").trim().toLowerCase() === userCedula ||
-              empleado?.id === userId);
+            String(empleado?.cedula || "").trim().toLowerCase() === userCedula;
 
           if (empleado && isExactMatch) {
             setSelectedEmployee(empleado);
@@ -238,14 +278,14 @@ export const useActividadFormLogic = ({
               preloadAvatar(empleado.link_foto);
             }
           } else {
-            // Descartar coincidencias parciales: si no hay coincidencia exacta por cédula ni ID, no asignar responsable
+            // Descartar coincidencias parciales: si no hay coincidencia exacta por cédula, no asignar responsable
             setSelectedEmployee(null);
             setIsIdentityResolved(false);
             setValue("responsable_id", 0);
             setEmployeeError(
               fetchFailed
                 ? "Error de conexión al consultar el perfil de empleado."
-                : "No se encontró un empleado activo que coincida exactamente con tu cédula o ID."
+                : "No se encontró un empleado activo que coincida exactamente con tu cédula."
             );
           }
         } catch (error) {
@@ -266,7 +306,11 @@ export const useActividadFormLogic = ({
       }
 
       // Modo edición o ya hay un responsable
-      if (defaultValues.responsable_id && defaultValues.responsable_id > 0) {
+      const targetEmpId =
+        (defaultValues.responsable_snapshot as any)?.empleado_id ||
+        defaultValues.responsable_id;
+
+      if (targetEmpId && targetEmpId > 0) {
         try {
           const empleadoBase = getSnapshotEmpleado(defaultValues);
 
@@ -274,9 +318,7 @@ export const useActividadFormLogic = ({
             setSelectedEmployee(empleadoBase);
           }
 
-          const empleadoFull = await getEmpleadoById(
-            defaultValues.responsable_id,
-          );
+          const empleadoFull = await getEmpleadoById(targetEmpId);
           if (!isActive) return;
 
           setSelectedEmployee({
@@ -298,7 +340,7 @@ export const useActividadFormLogic = ({
     return () => {
       isActive = false;
     };
-  }, [defaultValues, reset, mode, setValue, retryTrigger]);
+  }, [defaultValues, mode, setValue, retryTrigger]);
 
   // Aplicar errores del backend al formulario
   useBackendErrors(backendErrors, setError);

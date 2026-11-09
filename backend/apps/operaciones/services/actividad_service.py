@@ -20,15 +20,22 @@ class ActividadService:
         """
         Resuelve el ID de empleado activo asociado a un usuario de autenticación.
 
-        Prioriza la búsqueda activa por cédula (username) y utiliza el ID de usuario
-        únicamente cuando exista una asociación fiable, seleccionando exclusivamente
-        el campo `id`.
+        NOTA ARQUITECTÓNICA (Fase de Transición):
+        Este método actúa como adapter temporal entre el modelo de autenticación (`auth_user`)
+        y la base de personal legacy (`cinco_base_de_personal`) mientras se completa el desarrollo
+        del nuevo módulo central de empleados y el sistema de roles y permisos (RBAC).
+
+        Prioriza la búsqueda activa por cédula (username). Si no coincide, utiliza el
+        ID de usuario únicamente cuando exista una asociación verificable (coincidencia
+        por cédula, código SAP o correo electrónico), seleccionando exclusivamente el
+        campo `id`. Si no existe asociación comprobable, no resuelve ningún empleado
+        para evitar asignaciones erróneas.
 
         Args:
             user: Instancia de usuario de autenticación (django.contrib.auth.models.User).
 
         Returns:
-            Optional[int]: ID del empleado activo o None si no se encuentra relación.
+            Optional[int]: ID del empleado activo o None si no se encuentra relación verificable.
         """
         if not user or not getattr(user, 'is_authenticated', False):
             return None
@@ -36,8 +43,12 @@ class ActividadService:
         from apps.empleados.models import Empleado
 
         username = getattr(user, 'username', None)
-        if username and str(username).strip():
-            clean_username = str(username).strip()
+        clean_username = str(username).strip() if username else ""
+        email = getattr(user, 'email', None)
+        clean_email = str(email).strip().lower() if email else ""
+
+        # 1. Prioridad: coincidencia activa por cédula
+        if clean_username:
             emp_id = (
                 Empleado.objects.filter(cedula=clean_username, estado="ACTIVO")
                 .values_list('id', flat=True)
@@ -46,10 +57,46 @@ class ActividadService:
             if emp_id:
                 return emp_id
 
+        # 2. Fallback por ID: solo si existe una asociación verificable entre el empleado y el usuario
         user_id = getattr(user, 'id', None)
         if user_id:
-            emp_id = (
+            emp_data = (
                 Empleado.objects.filter(id=user_id, estado="ACTIVO")
+                .values('id', 'cedula', 'codigo_sap', 'correo', 'email_personal')
+                .first()
+            )
+            if emp_data:
+                cedula_val = str(emp_data.get('cedula') or '').strip().lower()
+                sap_val = str(emp_data.get('codigo_sap') or '').strip().lower()
+                correo_val = str(emp_data.get('correo') or '').strip().lower()
+                personal_val = str(emp_data.get('email_personal') or '').strip().lower()
+
+                es_verificable = False
+                if clean_username and clean_username.lower() in (cedula_val, sap_val):
+                    es_verificable = True
+                elif clean_email and clean_email in (correo_val, personal_val):
+                    es_verificable = True
+
+                if es_verificable:
+                    return emp_data['id']
+
+        # 3. Compatibilidad con usuarios cuyo username corresponde a código SAP o correo
+        if clean_username:
+            emp_id = (
+                Empleado.objects.filter(codigo_sap=clean_username, estado="ACTIVO")
+                .values_list('id', flat=True)
+                .first()
+            )
+            if emp_id:
+                return emp_id
+
+        if clean_email:
+            from django.db.models import Q
+            emp_id = (
+                Empleado.objects.filter(
+                    Q(correo__iexact=clean_email) | Q(email_personal__iexact=clean_email),
+                    estado="ACTIVO",
+                )
                 .values_list('id', flat=True)
                 .first()
             )
@@ -193,30 +240,48 @@ class ActividadService:
 
         with transaction.atomic():
             responsable_id = payload.get('responsable_id')
+            auth_responsable_id = None
+            empleado = None
 
             if actor_user_id is not None:
                 from django.contrib.auth import get_user_model
                 actor_user = get_user_model().objects.filter(id=actor_user_id).first()
                 if actor_user:
                     empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(actor_user)
-                    if empleado_perfil_id:
-                        if responsable_id and responsable_id != empleado_perfil_id:
-                            raise ValueError(
-                                "El responsable de la actividad no puede ser una persona diferente a la de tu perfil."
-                            )
-                        responsable_id = empleado_perfil_id
-                        payload['responsable_id'] = empleado_perfil_id
+                    if not empleado_perfil_id:
+                        raise ValueError(
+                            "No se encontró un perfil de empleado activo asociado a tu usuario para asignarlo como responsable."
+                        )
+                    if responsable_id and responsable_id != empleado_perfil_id:
+                        raise ValueError(
+                            "El responsable de la actividad no puede ser una persona diferente a la de tu perfil."
+                        )
+                    empleado = EmpleadoService().obtener_basico(empleado_perfil_id)
+                    # Enlace relacional: Actividad.responsable apunta a auth_user (base para futuro RBAC)
+                    auth_responsable_id = actor_user.id
 
-            if not responsable_id:
-                raise ValueError("El responsable de la actividad es obligatorio.")
-
-            empleado = EmpleadoService().obtener_basico(responsable_id)
             if not empleado:
-                raise ValueError("El empleado responsable no existe o está inactivo.")
-            
+                if not responsable_id:
+                    raise ValueError("El responsable de la actividad es obligatorio.")
+                empleado = EmpleadoService().obtener_basico(responsable_id)
+                if not empleado:
+                    raise ValueError("El empleado responsable no existe o está inactivo.")
+
+            if not auth_responsable_id:
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                user_found = User.objects.filter(username=empleado.get('cedula'), is_active=True).first()
+                if user_found:
+                    auth_responsable_id = user_found.id
+                elif User.objects.filter(id=responsable_id, is_active=True).exists():
+                    auth_responsable_id = responsable_id
+                else:
+                    auth_responsable_id = responsable_id
+
             ot_codes = [item['ot'] for item in ots if item.get('ot')] if ots else []
             ActividadService.validar_ots_unicas(ot_codes)
 
+            payload['responsable_id'] = auth_responsable_id
             if actor_user_id is not None:
                 payload['created_by_id'] = actor_user_id
                 payload['updated_by_id'] = actor_user_id
@@ -305,9 +370,19 @@ class ActividadService:
                 )
 
             if 'responsable_id' in validated_data:
-                empleado = EmpleadoService().obtener_basico(instance.responsable_id)
+                nuevo_emp_id = validated_data.pop('responsable_id')
+                empleado = EmpleadoService().obtener_basico(nuevo_emp_id)
                 if not empleado:
                     raise ValueError("El empleado responsable no existe o está inactivo.")
+
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                auth_user = User.objects.filter(username=empleado.get('cedula'), is_active=True).first()
+                if auth_user:
+                    instance.responsable = auth_user
+                elif User.objects.filter(id=nuevo_emp_id, is_active=True).exists():
+                    instance.responsable_id = nuevo_emp_id
+
                 ActividadResponsableSnapshot.objects.update_or_create(
                     actividad=instance,
                     defaults={
@@ -330,7 +405,7 @@ class ActividadService:
         return instance
 
     @staticmethod
-    def listar(usuario_id=None, filtros=None):
+    def listar(usuario_id=None, filtros=None, user=None):
         """
         Consulta y filtra las actividades activas del sistema.
 
@@ -340,6 +415,7 @@ class ActividadService:
         Args:
             usuario_id: ID opcional del usuario para filtrar actividades por asignación.
             filtros: Diccionario con parámetros opcionales de búsqueda y filtrado.
+            user: Instancia opcional de autenticación para validar privilegios de supervisión y resolver empleado.
 
         Returns:
             QuerySet: Conjunto de actividades filtradas y optimizadas.
@@ -351,11 +427,26 @@ class ActividadService:
         ).prefetch_related('ot_relaciones')
         filtros = filtros or {}
 
-        if usuario_id:
-            queryset = queryset.filter(
-                Q(created_by=usuario_id) |
-                Q(responsable_snapshot__empleado_id=usuario_id)
-            ).distinct()
+        # Si el usuario es superusuario o staff, tiene visibilidad global operativa sin restricción por usuario
+        es_global = bool(user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)))
+
+        if usuario_id and not es_global:
+            empleado_perfil_id = None
+            if user:
+                empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(user)
+            elif usuario_id:
+                from django.contrib.auth import get_user_model
+                u = get_user_model().objects.filter(id=usuario_id).first()
+                if u:
+                    empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(u)
+
+            filtro_usuario = Q(created_by_id=usuario_id) | Q(responsable_id=usuario_id)
+            if empleado_perfil_id:
+                filtro_usuario |= Q(responsable_snapshot__empleado_id=empleado_perfil_id)
+            else:
+                filtro_usuario |= Q(responsable_snapshot__empleado_id=usuario_id)
+
+            queryset = queryset.filter(filtro_usuario).distinct()
 
         if filtros.get('ot'):
             queryset = queryset.filter(
