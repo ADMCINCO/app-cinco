@@ -9,6 +9,7 @@ import django
 
 
 def setup_django() -> None:
+    """Configura el entorno y carga las configuraciones de Django para el script."""
     base_dir = Path(__file__).resolve().parents[1]
     if str(base_dir) not in sys.path:
         sys.path.insert(0, str(base_dir))
@@ -17,17 +18,19 @@ def setup_django() -> None:
 
 
 def normalize_text(value) -> str:
+    """Normaliza un valor a cadena de texto limpia sin espacios iniciales o finales."""
     if value is None:
         return ""
     return str(value).strip()
 
 
 def is_active_from_estado(estado: str) -> bool:
+    """Determina si el estado recibido corresponde a un usuario activo."""
     return normalize_text(estado).upper() == "ACTIVO"
 
 
 def is_identity_conflict(error, vendor: str) -> bool:
-    """Recognize only duplicate auth_user IDs or usernames, not other constraints."""
+    """Identifica si el error de integridad corresponde exclusivamente a colisión de ID o username."""
     cause = error.__cause__
     if vendor == "mysql" and cause and len(cause.args) >= 2 and cause.args[0] == 1062:
         match = re.search(r"for key ['`]([^'`]+)['`]$", str(cause.args[1]))
@@ -41,6 +44,7 @@ def is_identity_conflict(error, vendor: str) -> bool:
 
 
 def get_total_rows() -> int:
+    """Obtiene el número total de registros en la tabla cinco_base_de_personal de la base 'azul'."""
     from django.db import connections
     with connections["azul"].cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM cinco_base_de_personal")
@@ -49,6 +53,7 @@ def get_total_rows() -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Construye y configura el parser de argumentos de línea de comandos."""
     parser = argparse.ArgumentParser(
         description=(
             "Carga usuarios en auth_user desde la tabla cinco_base_de_personal en la DB 'azul'."
@@ -74,6 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def fetch_source_rows(batch_size: int):
+    """Generador que obtiene registros de la base 'azul' por lotes para optimizar consumo de memoria."""
     from django.db import connections
 
     query = (
@@ -91,6 +97,7 @@ def fetch_source_rows(batch_size: int):
 
 
 def main() -> int:
+    """Ejecuta el flujo principal de sincronización de usuarios hacia auth_user."""
     parser = build_parser()
     args = parser.parse_args()
 
