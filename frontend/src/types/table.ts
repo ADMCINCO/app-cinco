@@ -48,6 +48,7 @@ interface DataTableProps<TData> {
   onRowClick?: (row: TData) => void;
   renderRowActions?: (row: TData) => ReactNode;
   toolbarActions?: ReactNode;
+  tableContainerClassName?: string;
 }
 
 export type { DataTableProps };

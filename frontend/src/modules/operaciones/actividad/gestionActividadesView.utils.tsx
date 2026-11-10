@@ -199,9 +199,8 @@ export const handleExportToCsvHelper = (visibleRows: ActividadRecord[]) => {
 
 export const GESTION_ACTIVIDADES_CONFIG = {
   breadcrumbTitles: ["Operaciones", "Gestión de Actividades"],
-  title: "Modulo de Gestión de Actividades",
-  description:
-    "Aquí podrás gestionar todas las actividades relacionadas con las operaciones de CINCO SAS.",
+  title: "",
+  description: "",
   alertDuration: 5000,
   pageSizeOptions: [5, 10, 25, 50, 100],
 } as const;

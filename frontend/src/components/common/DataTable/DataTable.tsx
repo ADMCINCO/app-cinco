@@ -92,6 +92,7 @@ export function DataTable<TData>({
   onRowClick,
   renderRowActions,
   toolbarActions,
+  tableContainerClassName,
 }: DataTableProps<TData>) {
   // Estado local de la tabla
   const [globalFilter, setGlobalFilter] = useState(initialGlobalFilter);
@@ -219,6 +220,7 @@ export function DataTable<TData>({
           enableSorting={enableSorting}
           enableColumnFilters={enableColumnFilters}
           onRowClick={onRowClick}
+          tableContainerClassName={tableContainerClassName}
         />
 
         {/* Vista móvil (tarjetas) */}

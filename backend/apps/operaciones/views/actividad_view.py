@@ -32,6 +32,8 @@ class ActividadViewSet(ModelViewSet):
         'nodo',
         'fecha_inicio_desde',
         'fecha_inicio_hasta',
+        'todas',
+        'ver_todas',
     )
 
     def _get_filtros(self):

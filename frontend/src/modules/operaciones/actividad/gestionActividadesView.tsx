@@ -83,7 +83,7 @@ const GestionActividadesView = () => {
       <PageBreadcrumb
         pageTitle={[...GESTION_ACTIVIDADES_CONFIG.breadcrumbTitles]}
       />
-      <div className="w-full min-w-0 overflow-x-hidden rounded-2xl border border-gray-200 bg-white px-5 py-7 xl:px-10 xl:py-12 dark:border-gray-800 dark:bg-white/3">
+      <div className="w-full min-w-0 overflow-x-hidden rounded-2xl border border-gray-200 bg-white px-4 py-5 xl:px-8 xl:py-6 dark:border-gray-800 dark:bg-white/3">
         <div className="mx-auto w-full max-w-157.5 text-center">
           <h3 className="text-theme-xl mb-4 font-semibold text-gray-800 sm:text-2xl dark:text-white/90">
             {GESTION_ACTIVIDADES_CONFIG.title}

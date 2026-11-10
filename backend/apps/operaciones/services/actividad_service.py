@@ -485,8 +485,11 @@ class ActividadService:
         ).prefetch_related('ot_relaciones')
         filtros = filtros or {}
 
-        # Si el usuario es superusuario o staff, tiene visibilidad global operativa sin restricción por usuario
-        es_global = bool(user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)))
+        # Filtrado por usuario en sesión: Por defecto, restringe a las actividades creadas por el usuario
+        # o vinculadas a su perfil de empleado. Solo si se solicita explícitamente `ver_todas=true`
+        # y el usuario cuenta con permisos de staff/superuser, se desactiva el filtro.
+        ver_todas = str(filtros.get('todas', '')).lower() in ('true', '1') or str(filtros.get('ver_todas', '')).lower() in ('true', '1')
+        es_global = bool(ver_todas and user and (getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)))
 
         if usuario_id and not es_global:
             empleado_perfil_id = None

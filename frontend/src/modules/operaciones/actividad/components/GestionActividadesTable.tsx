@@ -48,6 +48,7 @@ export const GestionActividadesTable = ({
       }}
       onVisibleDataChange={setVisibleRows}
       toolbarActions={toolbarActions}
+      tableContainerClassName="max-h-[calc(100vh-380px)] min-h-[350px] overflow-auto"
     />
   );
 };

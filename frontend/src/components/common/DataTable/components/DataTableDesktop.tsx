@@ -10,6 +10,7 @@ interface DataTableDesktopProps<TData> {
   enableSorting: boolean;
   enableColumnFilters: boolean;
   onRowClick?: (row: TData) => void;
+  tableContainerClassName?: string;
 }
 
 /**
@@ -25,13 +26,20 @@ export function DataTableDesktop<TData>({
   enableSorting,
   enableColumnFilters,
   onRowClick,
+  tableContainerClassName,
 }: DataTableDesktopProps<TData>) {
   const headerGroups = table.getHeaderGroups();
   const rows = table.getRowModel().rows;
   const visibleColumnsCount = table.getVisibleLeafColumns().length;
 
   return (
-    <div className="hidden h-full w-full min-w-0 max-w-full overflow-auto md:block">
+    <div
+      className={
+        tableContainerClassName
+          ? `hidden w-full min-w-0 max-w-full overflow-auto md:block ${tableContainerClassName}`
+          : "hidden h-full w-full min-w-0 max-w-full overflow-auto md:block"
+      }
+    >
       <Table>
         <DataTableHeaderComponent
           headerGroups={headerGroups}

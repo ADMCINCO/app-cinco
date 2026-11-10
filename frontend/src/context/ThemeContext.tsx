@@ -16,17 +16,24 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [theme, setTheme] = useState<Theme>("light");
-  const isInitializedRef = useRef(false);
+  const isMounted = useRef(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setTheme(savedTheme);
+    const savedTheme = localStorage.getItem("theme");
+    const initialTheme: Theme = savedTheme === "dark" ? "dark" : "light";
+    setTheme(initialTheme);
+    if (initialTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 
   useEffect(() => {
-    isInitializedRef.current = true;
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
     localStorage.setItem("theme", theme);
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
