@@ -37,7 +37,7 @@ class ActividadService:
         Returns:
             Optional[int]: ID del empleado activo o None si no se encuentra relación verificable.
         """
-        if not user or not getattr(user, 'is_authenticated', False):
+        if not user or not getattr(user, 'is_authenticated', False) or not getattr(user, 'is_active', False):
             return None
 
         from apps.empleados.models import Empleado
@@ -245,20 +245,22 @@ class ActividadService:
 
             if actor_user_id is not None:
                 from django.contrib.auth import get_user_model
-                actor_user = get_user_model().objects.filter(id=actor_user_id).first()
-                if actor_user:
-                    empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(actor_user)
-                    if not empleado_perfil_id:
-                        raise ValueError(
-                            "No se encontró un perfil de empleado activo asociado a tu usuario para asignarlo como responsable."
-                        )
-                    if responsable_id and responsable_id != empleado_perfil_id:
-                        raise ValueError(
-                            "El responsable de la actividad no puede ser una persona diferente a la de tu perfil."
-                        )
-                    empleado = EmpleadoService().obtener_basico(empleado_perfil_id)
-                    # Enlace relacional: Actividad.responsable apunta a auth_user (base para futuro RBAC)
-                    auth_responsable_id = actor_user.id
+                actor_user = get_user_model().objects.filter(id=actor_user_id, is_active=True).first()
+                if not actor_user:
+                    raise ValueError("El usuario creador no existe o se encuentra inactivo en la plataforma.")
+
+                empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(actor_user)
+                if not empleado_perfil_id:
+                    raise ValueError(
+                        "No se encontró un perfil de empleado activo asociado a tu usuario para asignarlo como responsable."
+                    )
+                if responsable_id and responsable_id != empleado_perfil_id:
+                    raise ValueError(
+                        "El responsable de la actividad no puede ser una persona diferente a la de tu perfil."
+                    )
+                empleado = EmpleadoService().obtener_basico(empleado_perfil_id)
+                # Enlace relacional: Actividad.responsable apunta a auth_user activo (base para futuro RBAC)
+                auth_responsable_id = actor_user.id
 
             if not empleado:
                 if not responsable_id:
@@ -276,7 +278,7 @@ class ActividadService:
                 elif User.objects.filter(id=responsable_id, is_active=True).exists():
                     auth_responsable_id = responsable_id
                 else:
-                    auth_responsable_id = responsable_id
+                    raise ValueError("El empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
 
             ot_codes = [item['ot'] for item in ots if item.get('ot')] if ots else []
             ActividadService.validar_ots_unicas(ot_codes)
@@ -382,6 +384,8 @@ class ActividadService:
                     instance.responsable = auth_user
                 elif User.objects.filter(id=nuevo_emp_id, is_active=True).exists():
                     instance.responsable_id = nuevo_emp_id
+                else:
+                    raise ValueError("El nuevo empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
 
                 ActividadResponsableSnapshot.objects.update_or_create(
                     actividad=instance,

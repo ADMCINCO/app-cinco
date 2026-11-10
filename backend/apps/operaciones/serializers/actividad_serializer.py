@@ -148,7 +148,7 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
 
     def validate_responsable_id(self, value):
         """
-        Valida que el empleado responsable exista y, en creación, coincida con el usuario del perfil autenticado.
+        Valida que el empleado responsable exista, esté activo en la plataforma y, en creación, coincida con el perfil autenticado.
 
         Args:
             value: ID del empleado asignado como responsable.
@@ -157,10 +157,12 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
             int: ID validado del empleado.
 
         Raises:
-            serializers.ValidationError: Si el empleado no existe o no coincide con el perfil del creador.
+            serializers.ValidationError: Si el empleado no existe, no está activo o no coincide con el creador.
         """
         request = self.context.get('request')
         if self.instance is None and request and getattr(request, 'user', None) and request.user.is_authenticated:
+            if not getattr(request.user, 'is_active', False):
+                raise serializers.ValidationError("El usuario autenticado se encuentra inactivo.")
             empleado_perfil_id = ActividadService.resolver_empleado_id_por_usuario(request.user)
             if not empleado_perfil_id:
                 raise serializers.ValidationError(
@@ -173,6 +175,23 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
 
         if not EmpleadoService().existe(value):
             raise serializers.ValidationError("El empleado no existe o no está activo.")
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        empleado_data = EmpleadoService().obtener_basico(value)
+        cedula = empleado_data.get('cedula') if empleado_data else None
+
+        user_activo = False
+        if cedula and User.objects.filter(username=cedula, is_active=True).exists():
+            user_activo = True
+        elif User.objects.filter(id=value, is_active=True).exists():
+            user_activo = True
+
+        if not user_activo:
+            raise serializers.ValidationError(
+                "El empleado responsable debe contar con un usuario de acceso activo en la plataforma."
+            )
+
         return value
 
     def validate(self, attrs):
