@@ -298,6 +298,10 @@ class AgendaService:
             raise ValueError(f"No se encontró la actividad con ID {actividad_id}.")
 
         # 2. Resolver Responsable (auth_user)
+        # En la UI, el líder interactúa con un componente buscador asistido (EmployeeSearchInput)
+        # que permite coincidencias multi-criterio: nombres (uno o ambos), apellidos (uno o ambos),
+        # cédula o móvil. Al seleccionar al colaborador de la lista enriquecida, el frontend vincula
+        # la cédula verificada en `cc_agen_tecnico_search` y el identificador en `responsable_id`.
         raw_responsable = (
             data.get("responsable_id")
             or data_form.get("responsable_id")
@@ -305,27 +309,21 @@ class AgendaService:
             or data_form.get("iduser")
         )
         cc_search = data_form.get("cc_agen_tecnico_search") if isinstance(data_form, dict) else None
-        has_sent_responsable = bool(raw_responsable or cc_search)
         responsable = None
 
-        if has_sent_responsable:
-            if cc_search and str(cc_search).strip():
-                ced = str(cc_search).strip()
-                responsable = User.objects.filter(
-                    Q(username=ced) | Q(id=int(ced) if ced.isdigit() else 0),
-                    is_active=True,
-                ).first()
-
-            if not responsable and raw_responsable:
-                raw_str = str(raw_responsable).strip()
-                responsable = User.objects.filter(
-                    Q(id=int(raw_str) if raw_str.isdigit() else 0) | Q(username=raw_str),
-                    is_active=True,
-                ).first()
-
+        if cc_search and str(cc_search).strip():
+            ced = str(cc_search).strip()
+            responsable = User.objects.filter(username=ced, is_active=True).first()
             if not responsable:
-                identificador = raw_responsable or cc_search
-                raise ValueError(f"El técnico con identificador '{identificador}' no existe o no se encuentra activo en el sistema.")
+                raise ValueError(f"El técnico con cédula '{ced}' no existe o no se encuentra activo en el sistema.")
+        elif raw_responsable:
+            raw_str = str(raw_responsable).strip()
+            responsable = User.objects.filter(
+                Q(id=int(raw_str) if raw_str.isdigit() else 0) | Q(username=raw_str),
+                is_active=True,
+            ).first()
+            if not responsable:
+                raise ValueError(f"El técnico con identificador '{raw_str}' no existe o no se encuentra activo en el sistema.")
         else:
             # Fallback a actividad.responsable únicamente cuando el cliente no envió ningún responsable
             if actividad.responsable_id:
@@ -562,18 +560,23 @@ class AgendaService:
 
                 # 2. Resolver el técnico / responsable
                 responsable_id = None
-                if responsable_id_raw and str(responsable_id_raw).isdigit():
-                    responsable_id = int(responsable_id_raw)
-                elif cedula:
+                tiene_identificador = bool(responsable_id_raw or cedula)
+
+                if cedula:
                     u_obj = User.objects.filter(username=cedula, is_active=True).first()
                     if u_obj:
                         responsable_id = u_obj.id
+                    else:
+                        raise ValueError(f"El técnico con cédula '{cedula}' no existe o no se encuentra activo en el sistema.")
+                elif responsable_id_raw and str(responsable_id_raw).isdigit():
+                    responsable_id = int(responsable_id_raw)
 
-                if not responsable_id:
+                # Fallback al responsable de la OT únicamente si la fila no traía cédula ni responsable_id
+                if not tiene_identificador:
                     responsable_id = act_info.get("responsable_id")
 
                 if not responsable_id:
-                    raise ValueError(f"No se pudo determinar el técnico responsable para la cédula '{cedula}'.")
+                    raise ValueError(f"No se pudo determinar un técnico responsable activo para la fila {idx}.")
 
                 # 3. Guardar con transacción individual por fila
                 with transaction.atomic():
@@ -591,7 +594,7 @@ class AgendaService:
                             "rad_sede_agen": sede,
                             "area_agen": act_info.get("responsable_area", ""),
                             "carp_agen": act_info.get("responsable_carpeta", ""),
-                            "cc_agen_tecnico_search": cedula or str(responsable_id),
+                            "cc_agen_tecnico_search": cedula or "",
                             "actividad_param": ot.upper(),
                             "nombre_param": (nombre_act or act_info.get("tipo_trabajo", ot)).upper(),
                             "fec_agen_ini": f_ini,

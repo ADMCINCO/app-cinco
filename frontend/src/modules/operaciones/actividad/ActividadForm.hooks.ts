@@ -321,7 +321,7 @@ export const useActividadFormLogic = ({
 
       // Modo edición o ya hay un responsable
       const targetEmpId =
-        (memoizedDefaultValues.responsable_snapshot as any)?.empleado_id ||
+        memoizedDefaultValues.responsable_snapshot?.empleado_id ||
         memoizedDefaultValues.responsable_id;
 
       if (targetEmpId && targetEmpId > 0) {

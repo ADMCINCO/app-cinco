@@ -106,6 +106,68 @@ class ActividadService:
         return None
 
     @staticmethod
+    def resolver_usuario_por_empleado_id(empleado_id):
+        """
+        Resuelve el usuario de autenticación activo asociado a un empleado.
+
+        Consulta directamente el registro del empleado activo y busca correspondencia
+        con una cuenta de usuario activa (is_active=True) respetando la jerarquía de
+        identificadores verificables: cédula, código SAP y correo corporativo o personal,
+        en coherencia estricta con el contrato de resolver_empleado_id_por_usuario.
+
+        Args:
+            empleado_id: ID del empleado en la tabla de personal.
+
+        Returns:
+            Optional[User]: Instancia de User activo o None si no se encuentra relación verificable.
+        """
+        if not empleado_id:
+            return None
+
+        from apps.empleados.models import Empleado
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+
+        emp = (
+            Empleado.objects.filter(id=empleado_id, estado="ACTIVO")
+            .values('id', 'cedula', 'codigo_sap', 'correo', 'email_personal', 'correo_electronico_personal')
+            .first()
+        )
+        if not emp:
+            return None
+
+        cedula = str(emp.get('cedula') or '').strip()
+        sap = str(emp.get('codigo_sap') or '').strip()
+        correo = str(emp.get('correo') or '').strip()
+        email_personal = str(emp.get('email_personal') or emp.get('correo_electronico_personal') or '').strip()
+
+        # 1. Prioridad: coincidencia activa por cédula (username)
+        if cedula:
+            user = User.objects.filter(username=cedula, is_active=True).first()
+            if user:
+                return user
+
+        # 2. Coincidencia por código SAP (username)
+        if sap:
+            user = User.objects.filter(username=sap, is_active=True).first()
+            if user:
+                return user
+
+        # 3. Coincidencia por correo corporativo o personal
+        if correo:
+            user = User.objects.filter(email__iexact=correo, is_active=True).first()
+            if user:
+                return user
+
+        if email_personal:
+            user = User.objects.filter(email__iexact=email_personal, is_active=True).first()
+            if user:
+                return user
+
+        return None
+
+    @staticmethod
     def _sync_ots(actividad: Actividad, ots_data, actor_user_id=None):
         """
         Sincroniza las relaciones de Órdenes de Trabajo (OTs) asociadas a una actividad.
@@ -270,20 +332,9 @@ class ActividadService:
                     raise ValueError("El empleado responsable no existe o está inactivo.")
 
             if not auth_responsable_id:
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
-                cedula = empleado.get('cedula')
-                user_found = User.objects.filter(username=cedula, is_active=True).first() if cedula else None
-                if not user_found:
-                    sap = empleado.get('codigo_sap')
-                    correo = empleado.get('correo')
-                    if sap:
-                        user_found = User.objects.filter(username=sap, is_active=True).first()
-                    if not user_found and correo:
-                        user_found = User.objects.filter(email__iexact=correo, is_active=True).first()
-
-                if user_found:
-                    auth_responsable_id = user_found.id
+                auth_user = ActividadService.resolver_usuario_por_empleado_id(empleado['id'])
+                if auth_user:
+                    auth_responsable_id = auth_user.id
                 else:
                     raise ValueError("El empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
 
@@ -361,18 +412,7 @@ class ActividadService:
                 if not empleado:
                     raise ValueError("El empleado responsable no existe o está inactivo.")
 
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
-                cedula = empleado.get('cedula')
-                auth_user = User.objects.filter(username=cedula, is_active=True).first() if cedula else None
-                if not auth_user:
-                    sap = empleado.get('codigo_sap')
-                    correo = empleado.get('correo')
-                    if sap:
-                        auth_user = User.objects.filter(username=sap, is_active=True).first()
-                    if not auth_user and correo:
-                        auth_user = User.objects.filter(email__iexact=correo, is_active=True).first()
-
+                auth_user = ActividadService.resolver_usuario_por_empleado_id(nuevo_emp_id)
                 if not auth_user:
                     raise ValueError("El nuevo empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
 

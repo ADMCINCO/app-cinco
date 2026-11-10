@@ -176,23 +176,8 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
         if not EmpleadoService().existe(value):
             raise serializers.ValidationError("El empleado no existe o no está activo.")
 
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        empleado_data = EmpleadoService().obtener_basico(value)
-        cedula = empleado_data.get('cedula') if empleado_data else None
-
-        user_activo = False
-        if cedula and User.objects.filter(username=cedula, is_active=True).exists():
-            user_activo = True
-        else:
-            sap = empleado_data.get('codigo_sap') if empleado_data else None
-            correo = empleado_data.get('correo') if empleado_data else None
-            if sap and User.objects.filter(username=sap, is_active=True).exists():
-                user_activo = True
-            elif correo and User.objects.filter(email__iexact=correo, is_active=True).exists():
-                user_activo = True
-
-        if not user_activo:
+        auth_user = ActividadService.resolver_usuario_por_empleado_id(value)
+        if not auth_user:
             raise serializers.ValidationError(
                 "El empleado responsable debe contar con un usuario de acceso activo en la plataforma."
             )
