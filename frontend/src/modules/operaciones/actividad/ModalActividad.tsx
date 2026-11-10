@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   actividadCreateDefaultValues,
   actividadEditDefaultValues,
@@ -27,10 +28,14 @@ const ModalActividad = ({
   const { isOpen, openModal, closeModal } = useModal();
   const { handleSubmit, isLoading, error } = useActividadSubmit();
 
-  const defaultValues =
-    mode === "edit" && actividad
+  const defaultValues = useMemo(() => {
+    return mode === "edit" && actividad
       ? actividadEditDefaultValues(actividad)
       : actividadCreateDefaultValues;
+  }, [mode, actividad]);
+
+  const initialResponsableId =
+    actividad?.responsable_snapshot?.empleado_id || actividad?.responsable_id;
 
   return (
     <>
@@ -44,6 +49,7 @@ const ModalActividad = ({
         </div>
 
         <ActividadForm
+          actividad={actividad}
           defaultValues={defaultValues}
           isLoading={isLoading}
           onSubmit={(data) =>
@@ -52,7 +58,7 @@ const ModalActividad = ({
               mode,
               actividad?.id,
               closeModal,
-              actividad?.responsable_id,
+              initialResponsableId,
             )
           }
           backendErrors={error?.errors}

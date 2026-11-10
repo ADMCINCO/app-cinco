@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FieldErrors, useForm, useWatch } from "react-hook-form";
@@ -20,9 +20,15 @@ import {
   logDevelopmentWarning,
 } from "@/lib/environment";
 import { toast } from "sonner";
+import { Actividad } from "./types";
+import {
+  actividadCreateDefaultValues,
+  actividadEditDefaultValues,
+} from "./actividad.defaults";
 
 interface UseActividadFormLogicParams {
-  defaultValues: ActividadFormData;
+  defaultValues?: ActividadFormData;
+  actividad?: Actividad;
   backendErrors?: Record<string, any> | null;
   mode?: "create" | "edit";
 }
@@ -86,9 +92,17 @@ export const isNetworkOrServerError = (error: unknown): boolean => {
 
 export const useActividadFormLogic = ({
   defaultValues,
+  actividad,
   backendErrors,
   mode = "create",
 }: UseActividadFormLogicParams) => {
+  const memoizedDefaultValues = useMemo(() => {
+    if (mode === "edit" && actividad) {
+      return actividadEditDefaultValues(actividad);
+    }
+    return defaultValues || actividadCreateDefaultValues;
+  }, [mode, actividad, defaultValues]);
+
   const [selectedEmployee, setSelectedEmployee] = useState<Empleado | null>(
     null,
   );
@@ -108,7 +122,7 @@ export const useActividadFormLogic = ({
     formState: { errors },
   } = useForm<ActividadFormData>({
     resolver: zodResolver(ActividadSchema) as any,
-    defaultValues,
+    defaultValues: memoizedDefaultValues,
   });
 
   const watchOts = useWatch({
@@ -200,10 +214,10 @@ export const useActividadFormLogic = ({
     watchFechaInicioPadre,
   ]);
 
-  // Restablecer valores por defecto del formulario de manera independiente
+  // Restablecer valores por defecto del formulario de manera independiente y sincronizada con los valores memoizados
   useEffect(() => {
-    reset(defaultValues);
-  }, [defaultValues, reset]);
+    reset(memoizedDefaultValues);
+  }, [memoizedDefaultValues, reset]);
 
   // Cargar perfil del empleado responsable según el modo
   useEffect(() => {
@@ -307,12 +321,12 @@ export const useActividadFormLogic = ({
 
       // Modo edición o ya hay un responsable
       const targetEmpId =
-        (defaultValues.responsable_snapshot as any)?.empleado_id ||
-        defaultValues.responsable_id;
+        (memoizedDefaultValues.responsable_snapshot as any)?.empleado_id ||
+        memoizedDefaultValues.responsable_id;
 
       if (targetEmpId && targetEmpId > 0) {
         try {
-          const empleadoBase = getSnapshotEmpleado(defaultValues);
+          const empleadoBase = getSnapshotEmpleado(memoizedDefaultValues);
 
           if (empleadoBase && isActive) {
             setSelectedEmployee(empleadoBase);
@@ -340,7 +354,7 @@ export const useActividadFormLogic = ({
     return () => {
       isActive = false;
     };
-  }, [defaultValues, mode, setValue, retryTrigger]);
+  }, [memoizedDefaultValues, mode, setValue, retryTrigger]);
 
   // Aplicar errores del backend al formulario
   useBackendErrors(backendErrors, setError);

@@ -7,6 +7,7 @@ import { ActividadFormFields } from "./ActividadFormFields";
 
 const ActividadForm = ({
   defaultValues,
+  actividad,
   onSubmit,
   isLoading,
   backendErrors,
@@ -24,6 +25,7 @@ const ActividadForm = ({
     retryLoadEmployee,
   } = useActividadFormLogic({
     defaultValues,
+    actividad,
     backendErrors,
     mode,
   });

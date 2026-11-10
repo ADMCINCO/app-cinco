@@ -184,8 +184,13 @@ class ActividadWriteSerializer(serializers.ModelSerializer):
         user_activo = False
         if cedula and User.objects.filter(username=cedula, is_active=True).exists():
             user_activo = True
-        elif User.objects.filter(id=value, is_active=True).exists():
-            user_activo = True
+        else:
+            sap = empleado_data.get('codigo_sap') if empleado_data else None
+            correo = empleado_data.get('correo') if empleado_data else None
+            if sap and User.objects.filter(username=sap, is_active=True).exists():
+                user_activo = True
+            elif correo and User.objects.filter(email__iexact=correo, is_active=True).exists():
+                user_activo = True
 
         if not user_activo:
             raise serializers.ValidationError(

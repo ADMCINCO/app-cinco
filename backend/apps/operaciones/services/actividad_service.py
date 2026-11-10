@@ -272,11 +272,18 @@ class ActividadService:
             if not auth_responsable_id:
                 from django.contrib.auth import get_user_model
                 User = get_user_model()
-                user_found = User.objects.filter(username=empleado.get('cedula'), is_active=True).first()
+                cedula = empleado.get('cedula')
+                user_found = User.objects.filter(username=cedula, is_active=True).first() if cedula else None
+                if not user_found:
+                    sap = empleado.get('codigo_sap')
+                    correo = empleado.get('correo')
+                    if sap:
+                        user_found = User.objects.filter(username=sap, is_active=True).first()
+                    if not user_found and correo:
+                        user_found = User.objects.filter(email__iexact=correo, is_active=True).first()
+
                 if user_found:
                     auth_responsable_id = user_found.id
-                elif User.objects.filter(id=responsable_id, is_active=True).exists():
-                    auth_responsable_id = responsable_id
                 else:
                     raise ValueError("El empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
 
@@ -342,11 +349,46 @@ class ActividadService:
         detalle_data = validated_data.pop('detalle', None)
         ubicacion_data = validated_data.pop('ubicacion', None)
         ots = validated_data.pop('ots', None)
+        nuevo_emp_id = validated_data.pop('responsable_id', None)
 
         with transaction.atomic():
             if ots is not None:
                 ot_codes = [item['ot'] for item in ots if item.get('ot')]
                 ActividadService.validar_ots_unicas(ot_codes, actividad_id=instance.id)
+
+            if nuevo_emp_id is not None:
+                empleado = EmpleadoService().obtener_basico(nuevo_emp_id)
+                if not empleado:
+                    raise ValueError("El empleado responsable no existe o está inactivo.")
+
+                from django.contrib.auth import get_user_model
+                User = get_user_model()
+                cedula = empleado.get('cedula')
+                auth_user = User.objects.filter(username=cedula, is_active=True).first() if cedula else None
+                if not auth_user:
+                    sap = empleado.get('codigo_sap')
+                    correo = empleado.get('correo')
+                    if sap:
+                        auth_user = User.objects.filter(username=sap, is_active=True).first()
+                    if not auth_user and correo:
+                        auth_user = User.objects.filter(email__iexact=correo, is_active=True).first()
+
+                if not auth_user:
+                    raise ValueError("El nuevo empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
+
+                instance.responsable = auth_user
+
+                ActividadResponsableSnapshot.objects.update_or_create(
+                    actividad=instance,
+                    defaults={
+                        'empleado_id': empleado['id'],
+                        'nombre': empleado['nombre'],
+                        'area': empleado.get('area') or "",
+                        'carpeta': empleado.get('carpeta') or "",
+                        'cargo': empleado.get('cargo') or "",
+                        'movil': empleado.get('movil') or "",
+                    },
+                )
 
             if validated_data.get('estado'):
                 validated_data['estado'] = str(validated_data['estado']).strip().lower()
@@ -369,34 +411,6 @@ class ActividadService:
                 ActividadUbicacion.objects.update_or_create(
                     actividad=instance,
                     defaults=ubicacion_data,
-                )
-
-            if 'responsable_id' in validated_data:
-                nuevo_emp_id = validated_data.pop('responsable_id')
-                empleado = EmpleadoService().obtener_basico(nuevo_emp_id)
-                if not empleado:
-                    raise ValueError("El empleado responsable no existe o está inactivo.")
-
-                from django.contrib.auth import get_user_model
-                User = get_user_model()
-                auth_user = User.objects.filter(username=empleado.get('cedula'), is_active=True).first()
-                if auth_user:
-                    instance.responsable = auth_user
-                elif User.objects.filter(id=nuevo_emp_id, is_active=True).exists():
-                    instance.responsable_id = nuevo_emp_id
-                else:
-                    raise ValueError("El nuevo empleado responsable no cuenta con un usuario de acceso activo en el sistema.")
-
-                ActividadResponsableSnapshot.objects.update_or_create(
-                    actividad=instance,
-                    defaults={
-                        'empleado_id': empleado['id'],
-                        'nombre': empleado['nombre'],
-                        'area': empleado.get('area') or "",
-                        'carpeta': empleado.get('carpeta') or "",
-                        'cargo': empleado.get('cargo') or "",
-                        'movil': empleado.get('movil') or "",
-                    },
                 )
 
             if ots is not None:
@@ -447,8 +461,6 @@ class ActividadService:
             filtro_usuario = Q(created_by_id=usuario_id) | Q(responsable_id=usuario_id)
             if empleado_perfil_id:
                 filtro_usuario |= Q(responsable_snapshot__empleado_id=empleado_perfil_id)
-            else:
-                filtro_usuario |= Q(responsable_snapshot__empleado_id=usuario_id)
 
             queryset = queryset.filter(filtro_usuario).distinct()
 

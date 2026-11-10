@@ -298,36 +298,41 @@ class AgendaService:
             raise ValueError(f"No se encontró la actividad con ID {actividad_id}.")
 
         # 2. Resolver Responsable (auth_user)
-        responsable_id = (
+        raw_responsable = (
             data.get("responsable_id")
             or data_form.get("responsable_id")
             or data_form.get("empleado_id")
             or data_form.get("iduser")
         )
+        cc_search = data_form.get("cc_agen_tecnico_search") if isinstance(data_form, dict) else None
+        has_sent_responsable = bool(raw_responsable or cc_search)
+        responsable = None
 
-        if not responsable_id and data_form.get("cc_agen_tecnico_search"):
-            ced = str(data_form.get("cc_agen_tecnico_search")).strip()
-            user_found = User.objects.filter(Q(username=ced) | Q(id=ced if ced.isdigit() else 0)).first()
-            if user_found:
-                responsable_id = user_found.id
-            else:
-                responsable_id = actividad.responsable_id
+        if has_sent_responsable:
+            if cc_search and str(cc_search).strip():
+                ced = str(cc_search).strip()
+                responsable = User.objects.filter(
+                    Q(username=ced) | Q(id=int(ced) if ced.isdigit() else 0),
+                    is_active=True,
+                ).first()
 
-        if not responsable_id:
-            responsable_id = actividad.responsable_id
+            if not responsable and raw_responsable:
+                raw_str = str(raw_responsable).strip()
+                responsable = User.objects.filter(
+                    Q(id=int(raw_str) if raw_str.isdigit() else 0) | Q(username=raw_str),
+                    is_active=True,
+                ).first()
 
-        responsable = User.objects.filter(id=responsable_id, is_active=True).first()
-        if not responsable and responsable_id:
-            from apps.empleados.services import EmpleadoService
-            emp = EmpleadoService().obtener_basico(responsable_id)
-            if emp and emp.get("cedula"):
-                responsable = User.objects.filter(username=emp["cedula"], is_active=True).first()
+            if not responsable:
+                identificador = raw_responsable or cc_search
+                raise ValueError(f"El técnico con identificador '{identificador}' no existe o no se encuentra activo en el sistema.")
+        else:
+            # Fallback a actividad.responsable únicamente cuando el cliente no envió ningún responsable
+            if actividad.responsable_id:
+                responsable = User.objects.filter(id=actividad.responsable_id, is_active=True).first()
 
-        if not responsable and actividad.responsable_id:
-            responsable = User.objects.filter(id=actividad.responsable_id, is_active=True).first()
-
-        if not responsable:
-            raise ValueError(f"El técnico con ID {responsable_id} no existe en los usuarios del sistema.")
+            if not responsable:
+                raise ValueError("No se pudo determinar un técnico responsable activo para el agendamiento.")
 
         # 3. Fechas
         f_ini_str = str(data.get("fecha_inicio") or data_form.get("fec_agen_ini") or data_form.get("fecha_inicio") or "").strip()
@@ -388,12 +393,25 @@ class AgendaService:
             # NOTA DE DOMINIO: El responsable de la actividad es el jefe creador de la OT y una actividad
             # puede vincularse a múltiples técnicos en la agenda. No se debe sobreescribir responsable_id
             # ni las fechas macro de la actividad en cada agendamiento individual.
+            ESTADOS_VALIDOS_ACTIVIDAD = {
+                "pendiente",
+                "en_progreso",
+                "completada",
+                "cancelada",
+                "pausada",
+                "reprogramada",
+                "agendado",
+                "agendada",
+            }
             nuevo_estado = data.get("estado") or (data_form.get("estado") if isinstance(data_form, dict) else None)
             if nuevo_estado and str(nuevo_estado).strip():
                 estado_clean = str(nuevo_estado).strip().lower()
-                if actividad.estado != estado_clean:
-                    actividad.estado = estado_clean
-                    actividad.save(update_fields=["estado"])
+                if estado_clean in ESTADOS_VALIDOS_ACTIVIDAD:
+                    if estado_clean == "agendada":
+                        estado_clean = "agendado"
+                    if actividad.estado != estado_clean:
+                        actividad.estado = estado_clean
+                        actividad.save(update_fields=["estado"])
 
             # 2. Sincronizar Detalle (operaciones_actividaddetalle)
             tipo_trabajo = data.get("tipo_trabajo") or (data_form.get("nombre_param") if isinstance(data_form, dict) else None)
